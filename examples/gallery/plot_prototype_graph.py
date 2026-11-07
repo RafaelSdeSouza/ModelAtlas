@@ -1,48 +1,52 @@
 """
-A learned prototype graph and a fixed GTM lattice
-=================================================
+Adaptive prototype graphs in observed stellar-color space
+=========================================================
 
-Four Wine measurements are standardized before fitting two unsupervised
-representations. The growing neural gas-style graph learns its edges.
-Tiles are placed by an orthographic camera applied to three unwhitened
-principal components of the prototypes. Hue and width summarize the same
-assignment counts. The printed distance stress measures the distortion from
-fitted feature space to the rendered plane after one uniform rescaling.
+A Growing Neural Gas-style graph learns connections between regions in the
+two-dimensional SEGUE stellar-color locus. GTM provides an alternative with
+a fixed latent grid. Both representations use photometry alone; stellar
+temperature and metallicity are not used to learn their prototypes.
 
-GTM uses a fixed latent lattice and a regularized radial-basis map to feature
-space. Its figure colors one prototype component. The mixture responsibilities
-are calculated separately.
+The sample is the selected SDSS/SEGUE spectroscopic reference, not a
+representative Milky Way stellar census.
 """
 
+from pathlib import Path
 import numpy as np
-from sklearn.datasets import load_wine
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import StandardScaler
+from modelatlas import (fit_prototype_layout, growing_neural_gas,
+                        plot_gtm, plot_prototype_graph, train_gtm)
 
-from modelatlas import (
-    fit_prototype_layout,
-    growing_neural_gas,
-    plot_gtm,
-    plot_prototype_graph,
-    train_gtm,
-)
-
-columns = [0, 1, 6, 9]
-labels = ["Alcohol", "Malic acid", "Flavanoids", "Color intensity"]
-x = StandardScaler().fit_transform(load_wine().data[:, columns])
-graph = growing_neural_gas(x, max_nodes=23, steps=3800, insertion_interval=140, seed=31)
+path = Path(__file__).resolve().parent.parent / "astronomy" / "sdss_dr9_stars.npz"
+with np.load(path, allow_pickle=False) as cat:
+    colors, plates = cat["colors"], cat["plate"]
+splitter = GroupShuffleSplit(n_splits=1, test_size=0.25, random_state=29)
+train_idx, test_idx = next(splitter.split(colors, groups=plates))
+scaler = StandardScaler().fit(colors[train_idx])
+X = scaler.transform(colors[train_idx])
+X_test = scaler.transform(colors[test_idx])
+rng = np.random.default_rng(123)
+if len(X) > 3300:
+    X = X[rng.choice(len(X), 3300, replace=False)]
+if len(X_test) > 900:
+    X_test = X_test[rng.choice(len(X_test), 900, replace=False)]
+graph = growing_neural_gas(X, max_nodes=23, steps=3800, insertion_interval=140, seed=31)
 layout = fit_prototype_layout(graph.prototypes)
-fig, ax = plot_prototype_graph(graph, graph.assign(x), layout=layout, feature_labels=labels)
+fig, ax = plot_prototype_graph(
+    graph, graph.assign(X_test), layout=layout,
+    feature_labels=["(u-g)0", "(g-r)0"]
+)
 fig.set_label(
-    "Four Wine features connect to an irregular prototype graph. Tile widths and color "
-    "show assignment counts. Fine blue-gray edges connect prototypes learned as neighbors."
+    "Adaptive learned graph of observed SEGUE stellar colors. Prism color and "
+    "size encode held-out stellar occupancy. Edges represent learned adjacency."
 )
 distortion = layout.diagnostics(graph.prototypes)
-print(f"PCA retained variance: {layout.explained_variance_ratio.sum():.3f}")
-print(f"Fitted-space to screen distance stress: {distortion.normalized_stress:.3f}")
-
-gtm = train_gtm(x, grid=(6, 7), rbf_grid=(3, 4), n_iter=45)
-fig, ax = plot_gtm(gtm, component=2, label="Prototype flavanoids (standardized)")
+print(f"Prototype-layout projection stress: {distortion.normalized_stress:.3f}")
+gtm = train_gtm(X, grid=(6, 7), rbf_grid=(3, 4), n_iter=45)
+fig, ax = plot_gtm(gtm, component=0, label="Prototype (u-g)0 (standardized)")
 fig.set_label(
-    "Oblique rectangular GTM latent grid colored by the fitted standardized flavanoids component."
+    "GTM of observed SEGUE stellar colors. The latent grid is colored "
+    "by its learned first-color component, not a measured stellar parameter."
 )
-np.testing.assert_allclose(gtm.responsibilities(x).sum(axis=1), 1)
+np.testing.assert_allclose(gtm.responsibilities(X_test).sum(axis=1), 1)
