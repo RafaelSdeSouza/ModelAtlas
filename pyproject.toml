@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [{name = "Rafael S. de Souza"}]
-dependencies = ["numpy>=1.23", "matplotlib>=3.6"]
+dependencies = ["numpy>=1.23", "matplotlib>=3.6", "scipy>=1.9"]
 keywords = ["SOM", "scientific visualization", "matplotlib", "model inspection", "explainable AI", "integrated gradients"]
 
 [project.optional-dependencies]
