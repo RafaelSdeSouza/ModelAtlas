@@ -1,6 +1,6 @@
 """
 Regression models of galaxy spectroscopic redshift
-=================================================
+==================================================
 
 Ridge, forests, kernel regression and k-nearest neighbors predict SDSS
 spectroscopic redshift from the four observed optical colors. The reference
