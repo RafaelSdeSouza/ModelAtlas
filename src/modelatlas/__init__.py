@@ -1,4 +1,4 @@
-"""ModelAtlas: model structure and inferential geometry (research preview)."""
+"""ModelAtlas research software: fitted-model structure and inferential diagnostics."""
 from .som import SOMMap, train_som, som_from_minisom
 from .render import plot_som, plot_metric
 from .regression import plot_coefficients, plot_predictions
@@ -16,6 +16,14 @@ __version__="0.5.0"
 from .explanation import PathExplanation, explain_mlp, activation_signatures
 from .explanation_plot import plot_explanation_atlas
 
+# Adaptive photometric prototype graphs (research-preview baseline).
 from .adaptive import PrototypeGraph, GTMModel, growing_neural_gas, train_gtm, partition_tail_bounds
 from .adaptive_plot import plot_graph_atlas
 __all__.extend(["PrototypeGraph", "GTMModel", "growing_neural_gas", "train_gtm", "partition_tail_bounds", "plot_graph_atlas"])
+
+# Symmetry-aware matching for tanh binary MLPs; scipy is required.
+from .symmetry import Alignment, match_tanh_mlp, transform_signed_permutation, representational_metrics
+from .symmetry_plot import plot_independent_pair, plot_residual_atlas, plot_alignment_diagnostic
+__all__.extend(["Alignment", "match_tanh_mlp", "transform_signed_permutation",
+                "representational_metrics", "plot_independent_pair", "plot_residual_atlas",
+                "plot_alignment_diagnostic"])
