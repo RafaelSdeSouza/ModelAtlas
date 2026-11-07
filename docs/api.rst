@@ -96,7 +96,7 @@ Dispatch and export
 
 
 Model-agnostic functional and information geometry (research preview)
---------------------------------------------------------------------
+---------------------------------------------------------------------
 
 .. autofunction:: modelatlas.functional_map
 .. autofunction:: modelatlas.model_predictions
