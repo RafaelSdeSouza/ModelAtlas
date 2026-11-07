@@ -74,3 +74,12 @@ __all__ = [
     "transform_signed_permutation",
     "visualize",
 ]
+
+# Model-agnostic behavior geometry (experimental; opt in via public API).
+from .functional import FunctionalMap, InformationLattice, functional_map, information_lattice, model_predictions
+from .functional_plot import plot_functional_atlas, plot_information_lattice, plot_prediction_fibers
+from .behavior_geometry import ProbabilityAtlas, build_probability_atlas
+from .behavior_plot import plot_probability_atlas
+__all__.extend(['FunctionalMap','InformationLattice','functional_map','information_lattice','model_predictions',
+               'plot_functional_atlas','plot_information_lattice','plot_prediction_fibers',
+               'ProbabilityAtlas','build_probability_atlas','plot_probability_atlas'])

@@ -7,5 +7,7 @@ User guide
    adapters
    interpretation
    reproducibility
+   formal_geometry
+   information_geometry
    citation
    sdss_data
