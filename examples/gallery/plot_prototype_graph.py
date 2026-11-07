@@ -18,7 +18,7 @@ from sklearn.preprocessing import StandardScaler
 from modelatlas import (fit_prototype_layout, growing_neural_gas,
                         plot_gtm, plot_prototype_graph, train_gtm)
 
-path = Path(__file__).resolve().parent.parent / "astronomy" / "sdss_dr9_stars.npz"
+path = (Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd().parent) / "astronomy" / "sdss_dr9_stars.npz"
 with np.load(path, allow_pickle=False) as cat:
     colors, plates = cat["colors"], cat["plate"]
 splitter = GroupShuffleSplit(n_splits=1, test_size=0.25, random_state=29)
