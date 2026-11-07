@@ -1,10 +1,14 @@
 Citation and sources
 ====================
 
-Cite the exact ModelAtlas version and commit that produced the analysis.
-Current development metadata is in
-`CITATION.cff <https://github.com/RafaelSdeSouza/ModelAtlas/blob/dev/research-package-and-docs/CITATION.cff>`__.
-A release DOI will be added after archival. The software is MIT licensed.
+ModelAtlas is developed by **Rafael S. de Souza**.
+
+Cite the version or commit used in your analysis. The current citation
+metadata is in
+`CITATION.cff <https://github.com/RafaelSdeSouza/ModelAtlas/blob/research/functional-information-geometry/CITATION.cff>`__.
+No archival DOI has been assigned yet. The software is MIT licensed.
+
+Author affiliations are listed on the :doc:`creator` page.
 
 Methods
 -------
@@ -31,11 +35,6 @@ Data
 
 * NOAA National Geophysical Data Center. *Annual sunspot data (1700–2008)*.
   `Statsmodels data provenance <https://www.statsmodels.org/stable/datasets/generated/sunspots.html>`__.
-* Aeberhard, S., & Forina, M. (1992). *Wine*. UCI Machine Learning Repository.
-  `doi:10.24432/C5PC7J <https://doi.org/10.24432/C5PC7J>`__.
-* Wolberg, W., Mangasarian, O., Street, N., & Street, W. (1993).
-  *Breast Cancer Wisconsin (Diagnostic)*. UCI Machine Learning Repository.
-  `doi:10.24432/C5DW2B <https://doi.org/10.24432/C5DW2B>`__.
 
 The :doc:`sdss_data` page cites the SDSS releases and catalogues for the
 two observational SOM case studies.

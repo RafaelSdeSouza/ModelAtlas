@@ -6,6 +6,7 @@ version: 0.6.0.dev0
 authors:
   - family-names: de Souza
     given-names: Rafael S.
+    affiliation: "Centre for Astrophysics Research, University of Hertfordshire; Department of Physics and Astronomy, University of North Carolina at Chapel Hill; Universidade Federal do Rio Grande do Sul (research collaboration)"
 repository-code: https://github.com/RafaelSdeSouza/ModelAtlas
 license: MIT
 keywords:

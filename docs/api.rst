@@ -93,3 +93,19 @@ Dispatch and export
 
 .. autofunction:: modelatlas.visualize
 .. autofunction:: modelatlas.save_figure
+
+
+Model-agnostic functional and information geometry (research preview)
+---------------------------------------------------------------------
+
+.. autofunction:: modelatlas.functional_map
+.. autofunction:: modelatlas.model_predictions
+.. autoclass:: modelatlas.FunctionalMap
+.. autofunction:: modelatlas.information_lattice
+.. autoclass:: modelatlas.InformationLattice
+.. autofunction:: modelatlas.plot_functional_atlas
+.. autofunction:: modelatlas.plot_information_lattice
+.. autofunction:: modelatlas.plot_prediction_fibers
+.. autofunction:: modelatlas.build_probability_atlas
+.. autoclass:: modelatlas.ProbabilityAtlas
+.. autofunction:: modelatlas.plot_probability_atlas

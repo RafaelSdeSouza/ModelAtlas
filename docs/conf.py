@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "_ext"))
 
 project = "ModelAtlas"
 author = "Rafael S. de Souza"
-copyright = "2026, ModelAtlas contributors"
+copyright = "2026, Rafael S. de Souza and ModelAtlas contributors"
 version = release = __version__
 root_doc = "index"
 extensions = [

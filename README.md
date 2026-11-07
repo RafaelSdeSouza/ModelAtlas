@@ -1,5 +1,10 @@
 # ModelAtlas
 
+Developed by **Rafael S. de Souza** (University of Hertfordshire;
+University of North Carolina at Chapel Hill; UFRGS research collaboration).
+
+[About](docs/guide/creator.rst) · [How to cite](docs/guide/citation.rst) · [CITATION.cff](CITATION.cff)
+
 ModelAtlas makes Matplotlib figures from fitted scientific models. It draws
 rectangular and hexagonal SOM codebooks, learned prototype graphs, small
 neural networks, local logit attributions and symmetry-aligned comparisons.

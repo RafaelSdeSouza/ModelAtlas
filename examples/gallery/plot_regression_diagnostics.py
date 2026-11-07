@@ -1,59 +1,51 @@
 """
-Regression uncertainty and GLM coefficients
-===========================================
+Inspecting statistical models of galaxy redshift
+================================================
 
-For a simulated straight-line calibration with independent, constant-variance
-Gaussian errors, the Student-t prediction interval is pointwise for a new
-response. It includes residual scatter and coefficient estimation error.
-The example computes the interval before passing it to the plotting API.
-
-The second figure shows fitted slopes from binary logistic regression on
-standardized Wine chemistry. Its link is the logit. One unit on the feature
-scale is one sample standard deviation used by the fitted scaler.
+Ridge regression predicts spectroscopic redshift from four SDSS galaxy
+colors; held-out plate-group galaxies supply the predictive check.
+The second figure is a logistic GLM fitted to the same selected
+spectroscopic population. No calibration uncertainty is claimed.
 """
 
+from pathlib import Path
 import numpy as np
-from scipy.stats import t
-from sklearn.datasets import load_wine
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import StandardScaler
-
 from modelatlas import plot_coefficients, plot_predictions
 
-rng = np.random.default_rng(281)
-x = rng.uniform(0, 3, 65)
-y = 1.3 + 0.8 * x + rng.normal(0, 0.38, len(x))
-design = np.column_stack((np.ones(len(x)), x))
-coef = np.linalg.lstsq(design, y, rcond=None)[0]
-sigma = np.sqrt(np.sum((y - design @ coef) ** 2) / (len(y) - 2))
-grid = np.linspace(0, 3, 24)
-new_design = np.column_stack((np.ones(len(grid)), grid))
-prediction = new_design @ coef
-observed = 1.3 + 0.8 * grid + rng.normal(0, 0.38, len(grid))
-leverage = np.sum((new_design @ np.linalg.inv(design.T @ design)) * new_design, axis=1)
-margin = t.ppf(0.975, len(y) - 2) * sigma * np.sqrt(1 + leverage)
+path = (Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd().parent) / "astronomy" / "sdss_dr8_galaxies.npz"
+with np.load(path, allow_pickle=False) as catalogue:
+    X = catalogue["colors"]
+    z = catalogue["redshift"]
+    plates = catalogue["plate"]
+split = GroupShuffleSplit(n_splits=1, test_size=0.25, random_state=18)
+train_idx, test_idx = next(split.split(X, groups=plates))
+scaler = StandardScaler().fit(X[train_idx])
+A, B = scaler.transform(X[train_idx]), scaler.transform(X[test_idx])
+ridge = Ridge(alpha=12.0).fit(A, z[train_idx])
+pred = ridge.predict(B)
+ordered = np.argsort(z[test_idx], kind="stable")
+indices = ordered[np.linspace(0, len(ordered) - 1, 120, dtype=int)]
 fig, ax = plot_predictions(
-    observed,
-    prediction,
-    x=grid,
-    xlabel="Simulated calibration input",
-    ylabel="Response",
-    intervals=(prediction - margin, prediction + margin),
-    interval_label="95% pointwise prediction interval",
+    z[test_idx][indices], pred[indices],
+    x=np.arange(len(indices)),
+    xlabel="Held-out galaxies sorted by spectroscopic redshift",
+    ylabel="Redshift",
 )
 fig.set_label(
-    "Observed and fitted responses in a simulated calibration, with a labeled pointwise prediction band."
+    "Ridge-predicted versus observed spectroscopic redshift for held-out "
+    "SDSS DR8 galaxies. No uncertainty interval is asserted."
 )
-
-wine = load_wine()
-columns = [0, 1, 6, 9]
-features = StandardScaler().fit_transform(wine.data[:, columns])
-glm = LogisticRegression(C=1, random_state=24).fit(features, wine.target == 0)
+threshold = float(np.median(z[train_idx]))
+target = (z[train_idx] > threshold).astype(int)
+glm = LogisticRegression(C=1.0, max_iter=1500, random_state=24).fit(A, target)
 fig, ax = plot_coefficients(
-    glm,
-    labels=("Alcohol", "Malic acid", "Flavanoids", "Color intensity"),
-    xlabel="Change in fitted log-odds per standard deviation",
+    glm, labels=("u-g", "g-r", "r-i", "i-z"),
+    xlabel="Change in fitted log-odds per standardized color",
 )
 fig.set_label(
-    "Signed slopes for four standardized Wine measurements, displayed on the fitted log-odds scale."
+    "Signed logistic photo-z threshold coefficients trained on selected "
+    "SDSS DR8 spectroscopy; the coefficients are not causal effects."
 )
