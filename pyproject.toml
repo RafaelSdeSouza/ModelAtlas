@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "modelatlas-viz"
+version = "0.5.0"
+description = "Compact vector-native scientific diagrams grounded in fitted models"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Rafael S. de Souza"}]
+dependencies = ["numpy>=1.23", "matplotlib>=3.6", "scipy>=1.9"]
+keywords = ["SOM", "scientific visualization", "matplotlib", "model inspection", "explainable AI", "integrated gradients"]
+
+[project.optional-dependencies]
+examples = ["scikit-learn>=1.1", "pandas>=1.4", "scipy>=1.9"]
+test = ["pytest>=7", "scikit-learn>=1.1", "scipy>=1.9"]
+xai = ["scikit-learn>=1.1", "scipy>=1.9"]
+adaptive = ["scikit-learn>=1.1", "scipy>=1.9"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
