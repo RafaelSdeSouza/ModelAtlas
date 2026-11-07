@@ -1,3 +1,8 @@
+## 0.5.0 (draft research preview)
+- Added experimental Growing Neural Gas–style adaptive prototype graph, regularized GTM baseline, graph geometry renderer.
+- Five-seed synthetic photo-z comparisons; confirmed photometric quantization improvement but not better population identification.
+- Added independent tests, scripts and explicit assumptions/limitations.
+
 ## 0.4.0 (research development)
 - Added baseline-relative path-integrated edge attributions for binary sklearn MLPClassifier.
 - Added neuron-conservation diagnostics, 2.5D XAI renderer, real Wine example, and 8 XAI tests.
