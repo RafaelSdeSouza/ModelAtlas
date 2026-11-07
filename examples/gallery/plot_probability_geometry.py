@@ -71,6 +71,7 @@ labels={
     'KNN':'kNN','Gaussian NB':'NB'
 }
 fig,_=plot_probability_atlas(atlas,family=families,label_map=labels)
+fig.set_label('Fisher-Rao geometry of fitted predictive distributions; line strength indicates stability under reference-sample resampling.')
 output=os.environ.get('MODELATLAS_FIGURE_DIR')
 if output:
     dest=Path(output);dest.mkdir(parents=True,exist_ok=True)
