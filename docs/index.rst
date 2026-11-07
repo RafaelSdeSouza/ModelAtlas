@@ -21,7 +21,7 @@ ModelAtlas
          <p class="atlas-kicker">Scientific Python <span aria-hidden="true">/</span> Research preview</p>
          <h1>Visualize how astronomical models learn</h1>
          <p class="atlas-lede">Explore SOMs, neural networks, and statistical models on real galaxy, stellar, and solar observations. Examine what models learn, how their predictions differ, and where the data stop supporting inference.</p>
-         <p class="atlas-byline">Created by <a href="guide/creator.html">Prof. Rafael S. de Souza</a><span>University of Hertfordshire · UNC–Chapel Hill · UFRGS research collaboration</span></p>
+         <p class="atlas-byline"><a href="guide/creator.html">Rafael S. de Souza</a><span>University of Hertfordshire · UNC–Chapel Hill · UFRGS</span></p>
          <div class="atlas-actions">
            <a class="atlas-button" href="astronomy/plot_sdss_galaxy_som.html">Read the SDSS galaxy study</a>
            <a class="atlas-link" href="start/quickstart.html">Five-minute quick start</a>
@@ -73,7 +73,7 @@ ModelAtlas
          <li><a href="guide/communities.html">Research communities and workflows</a></li>
          <li><a href="guide/interpretation.html">Read the scientific interpretation guide</a></li>
          <li><a href="guide/reproducibility.html">Regenerate the figures and cite the software</a></li>
-         <li><a href="guide/creator.html">Meet the creator and read the credits</a></li>
+         <li><a href="guide/creator.html">About</a></li>
          <li><a href="api.html">Look up a plotting function</a></li>
        </ul>
      </section>
