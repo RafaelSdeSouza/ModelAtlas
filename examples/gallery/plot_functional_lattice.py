@@ -1,6 +1,6 @@
 """
 Functional geometry and information lattices
-===========================================
+============================================
 
 Different fitted model families are positioned by their **predictions** on
 common held-out observations, not by incompatible internal parameters. A
