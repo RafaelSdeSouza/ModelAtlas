@@ -1,8 +1,8 @@
 # ModelAtlas (research prototype 0.5.0)
 
-> **Research preview / manuscript development:** The SOM visualization uses fitted model parameters, but the photo-z partial-identification demo is synthetic and its bounds are conditional on explicit sensitivity assumptions. See [scientific notes](SCIENTIFIC_NOTES.md) and [reproducibility and manuscript checklist](REPRODUCIBILITY.md). This repository is public; the scientific algorithms are experimental and not validated survey calibration tools.
+> **Research preview / manuscript development:** The SOM visualization uses fitted model parameters, but the photo-z partial-identification demo is synthetic and its bounds are conditional on explicit sensitivity assumptions. See [scientific notes](SCIENTIFIC_NOTES.md) and [reproducibility and manuscript checklist](REPRODUCIBILITY.md). The repository is public; the algorithms and scientific examples are under active research development and have not been released as validated calibration methods.
 
-The SOM architecture figure can be reproduced with `python examples/photoz_architecture.py`.
+![ModelAtlas SOM with real input nodes and prototype connections](docs/figures/photoz_som_architecture.png)
 
 *Matplotlib rendering of a fitted 9 × 9 SOM on synthetic galaxy photometry: five inputs, 81 codebook neurons, and 405 feature-to-prototype connections. The prism colors show an assumption-dependent identification-width metric, not the connection strengths.*
 
@@ -11,22 +11,52 @@ Compact, vector-native scientific model diagrams **derived from actual fitted pa
 
 
 
-## Adaptive photometric prototype graphs (research preview v0.5)
+## Symmetry-aware comparison of independent neural networks (research preview)
 
-A reproducible **SOM vs. GTM vs. Growing Neural Gas–style graph** comparison is available in `examples/adaptive_photoz_comparison.py` and `examples/adaptive_replicates.py`. All three representations are trained on standardized synthetic *photometry alone* using 64 prototypes, with non-random spectroscopy and hidden true redshifts used strictly for an evaluation audit.
-
-The adaptive graph's learned edges, eight photometric input nodes, oblique PCA-derived prototype positions, occupancy and usable-spectroscopy fraction are rendered using Matplotlib in `plot_graph_atlas`. The image extrusion is decorative, and the input fibers are codebook coordinates rather than MLP connection weights.
-
-Run:
+ModelAtlas now supports **exact hidden-unit sign/permutation gauge transformations** of
+`scikit-learn` tanh binary MLPs and **data-dependent matching** between independent
+models. In the latter case, training-sample neuron activation traces are aligned
+with a Hungarian assignment; fitted predictions of both models are unchanged.
 
 ```bash
-python -m pip install -e '.[adaptive,examples,test,xai]'
+python -m pip install -e '.[examples,test]'
+python examples/real_world_symmetry.py
+```
+
+The script reproduces real-data demonstrations on historical solar sunspots,
+Wine chemistry, and Wisconsin Diagnostic Breast Cancer measurements, with
+chronological train/test splitting for solar activity. It produces two-network
+oblique diagrams, aligned residual atlases, numerical diagnostics and PDF/SVG/PNG
+figures. **These tests do not establish model equivalence or explain causal
+mechanisms.** Details: [Symmetry experiment notes](SYMMETRY_REAL_DATA.md).
+
+## New experiment: adaptive prototype graph versus SOM and GTM (v0.5)
+
+The package now has a **non-grid** Growing Neural Gas–style prototype-graph adapter,
+a regularized Generative Topographic Mapping baseline, and vector-native
+Matplotlib visualization of their learned topology and spectroscopic coverage.
+The comparison uses **synthetic 8-band galaxy photometry**, no true redshift
+labels for representation training, and nonrandom usable-spectroscopy selection.
+See [Adaptive photo-z scientific notes](ADAPTIVE_PHOTOZ_NOTES.md) for
+assumptions, precise figure semantics, controlled benchmarks and cautions.
+
+```bash
+python -m pip install -e '.[examples,test,adaptive]'
 python examples/adaptive_photoz_comparison.py
 python examples/adaptive_replicates.py
 python -m pytest -q
 ```
 
-**Result:** across five synthetic mock catalogues, the graph improves held-out photometric quantization but does **not** improve within-cell true-redshift dispersion or identified-set width over the SOM. The `W1 <= Gamma` sensitivity assumption is knowingly violated in some mock cells. The intervals are *not* confidence intervals, and none of the results constitute validation on real survey data. See [ADAPTIVE_PHOTOZ_NOTES.md](ADAPTIVE_PHOTOZ_NOTES.md).
+The oblique graph image shows 8 photometric inputs, 64 photometric prototypes,
+learned prototype edges and observed spectroscopic coverage. The rendered 3D
+positions are PCA projections of the high-dimensional codebook, **not** an
+intrinsic physical manifold. Faint input fibers encode selected codebook feature
+components, **not neural-network weights or feature attribution**.
+
+In five synthetic-mock repetitions, the adaptive graph improves photometric
+quantization over the conventional SOM but does not improve redshift dispersion
+or the assumption-dependent identified-set width. This is an instructive
+negative result, not proof of superiority of either method.
 
 ## New in 0.3 — the **actual nodes and connections**
 
@@ -234,7 +264,7 @@ The underlying code estimates sharp *relaxed probability-measure* tail bounds fo
 
 ## Experimental XAI: Explanation Atlas (v0.4 development)
 
-The XAI figures can be reproduced with `python examples/wine_explanation_atlas.py`.
+![Observation-specific 3D explanation from the UCI Wine dataset](docs/figures/wine_class_one_explanation_atlas.png)
 
 The oblique 3D model view now distinguishes **learned weights** from **local
 path-integrated attributions**. Each input circle, edge and hidden neuron tile
