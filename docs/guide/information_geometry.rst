@@ -6,6 +6,12 @@ It compares predictions from models that may use different parameters and
 computation graphs. It does not equate visual proximity with comparable causal
 mechanisms or with calibrated scientific conclusions.
 
+The gallery's observational demonstration uses SDSS DR8 galaxy colors
+and a set of classifiers predicting whether spectroscopic redshift exceeds
+the threshold learned from training spectra. The resulting functional
+comparisons describe these selected spectroscopic galaxies; they do not
+establish photo-z calibration for another target population.
+
 Predictive geometry
 -------------------
 
