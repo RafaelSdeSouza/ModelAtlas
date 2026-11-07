@@ -9,6 +9,7 @@ User guide
    reproducibility
    formal_geometry
    information_geometry
+   creator
    citation
    sdss_data
    communities
