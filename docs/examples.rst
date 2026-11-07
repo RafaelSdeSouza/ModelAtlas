@@ -1,34 +1,49 @@
 Examples
 ========
 
-Choose a scientific case study to work from observations, or browse the
-model gallery for a specific plotting function.
+ModelAtlas is a general-purpose Python visualization package with an
+**astronomy-centered gallery** for researchers using machine learning,
+self-organizing maps, statistical inference, and explainable AI.
 
-Observational astronomy
------------------------
+Observational survey applications
+---------------------------------
 
-* :doc:`astronomy/plot_sdss_galaxy_som` maps four SDSS colors onto a hexagonal
-  lattice and compares the distributions of held-out spectroscopic redshifts.
-* :doc:`astronomy/plot_sdss_stellar_som` examines how two stellar colors vary
-  with effective temperature and metallicity in SDSS/SEGUE.
+* :doc:`astronomy/plot_sdss_galaxy_som` maps SDSS broadband colors using a
+  hexagonal SOM and compares held-out spectroscopic-redshift distributions.
+* :doc:`astronomy/plot_sdss_stellar_som` studies stellar temperature and
+  iron abundance in the SEGUE color locus.
+* :doc:`gallery/plot_local_explanations` interprets an MLP photo-z
+  threshold classifier fitted to SDSS galaxy spectroscopy.
+* :doc:`gallery/plot_functional_lattice` compares several ML methods for
+  the same redshift-classification task, and tracks information from colors.
+* :doc:`gallery/plot_functional_regression` compares redshift regressors
+  in a common prediction geometry.
+* :doc:`gallery/plot_probability_geometry` evaluates model proximity
+  through Fisher--Rao distances between their predicted class probabilities.
+* :doc:`gallery/plot_prototype_graph` compares adaptive graph and GTM
+  representations of SEGUE stellar colors.
+* :doc:`gallery/plot_aligned_networks` compares independent neural
+  networks fitted to historical solar activity.
 
-Each study comes with the catalogue subset, the analysis code, and vector
-figures. :doc:`astronomy/index` collects the observational examples.
+These are reproducible educational studies, **not** scientific validation
+by SDSS, Euclid, Rubin, or other survey collaborations. Catalogue cuts,
+splits and provenance are documented in :doc:`guide/sdss_data`.
 
-Galaxy-color SOMs also support survey redshift calibration, as in
-`Buchs et al. (2019) <https://arxiv.org/abs/1901.05005>`__. The SDSS
-case study illustrates the color–redshift mapping step using spectra
-on held-out plates.
+Time-domain astronomy and population inference
+----------------------------------------------
 
-Models and diagnostics
-----------------------
+Historical solar activity supports a real time-ordered network-alignment
+example in :doc:`gallery/plot_aligned_networks`. The
+:doc:`gallery/plot_photoz_bounds` tutorial uses **synthetic galaxies** to
+illustrate how spectroscopic selection and sensitivity assumptions affect
+an identified interval. It must not be confused with survey-validated
+population-redshift calibration.
 
-The :doc:`gallery/index` covers prototype graphs, neural explanations and
-alignment, regression, solar activity, and a synthetic exercise on how
-spectroscopic selection affects partial identification.
+See :doc:`guide/communities` for research workflows relevant to
+Rubin/LSST, Euclid, stellar-population analyses, and alert brokers.
 
 .. toctree::
    :hidden:
 
-   Astronomy case studies <astronomy/index>
+   Observational astronomy <astronomy/index>
    Model and method gallery <gallery/index>
