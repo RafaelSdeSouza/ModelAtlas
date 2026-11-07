@@ -26,10 +26,21 @@ This matching objective is **not** a functional equivalence test. It is a coordi
 
 Run `python examples/real_world_symmetry.py` after `pip install -e '.[examples,test]'`. The code uses only datasets included with scikit-learn, and writes a metrics JSON and PNG/SVG/PDF figures for each experiment. No network calls, cached models, or hidden private datasets are needed.
 
+- **Solar sunspots (309 annual records, 1700–2008):** eight previous annual activity levels predict whether activity will rise next year; 301 overlapping feature windows, and the last 85 form a **strictly chronological holdout**. The original series is included as `data/sunspots_1700_2008.csv`, derived from statsmodels' historical NGDC compilation. This is a real astronomical time-series benchmark, **not a photometric-redshift test**.
 - **Wine (178 samples):** binary classification of wine class 0 versus the other classes using the first eight measured chemical properties.
 - **Wisconsin Diagnostic Breast Cancer (569 samples):** benign/malignant classification from eight selected real measurements. This is a visualization benchmark, not medical advice or a clinical diagnostic tool.
 
-For both experiments: a stratified 69/31 train/test split, common training-fitted scaler, two independently trained tanh MLPClassifier models (16 and 9 hidden units) with seeds 4 and 29, correspondences calculated on training observations only. Holdout data are used only to report predictive differences and residual activations. The displayed observation is selected as the held-out case of largest model disagreement **for illustration**, not as a representative example.
+For Wine and Wisconsin, a stratified 69/31 train/test split is used; solar-activity windows are split chronologically (216 training/85 test). All datasets use a training-fitted scaler and two independently trained tanh MLPClassifier models (16 and 9 hidden units) with seeds 4 and 29, with correspondences calculated on training observations only. Holdout data are used only to report predictive differences and residual activations. The displayed observation is selected as the held-out case of largest model disagreement **for illustration**, not as a representative example.
+
+### Observed results on held-out data (single split, two seeds)
+
+| Dataset | AUC A / B | Mean |Δp| | Maximum |Δp| | Mean matched correlation, hidden 1 (raw → aligned) |
+|---|---:|---:|---:|---:|
+| Solar sunspots | 0.949 / 0.947 | 0.0515 | 0.391 | 0.048 → 0.771 |
+| Wine | 1.000 / 1.000 | 0.0038 | 0.099 | 0.136 → 0.697 |
+| Wisconsin breast-cancer measurements | 0.984 / 0.982 | 0.0111 | 0.301 | −0.092 → 0.736 |
+
+The reported AUC values are descriptive estimates from **one** train/test split. The maximal difference is selected *after* inspecting holdout predictions, only for a compelling visual demonstration. One cannot infer statistical significance, interpretability improvements or calibration validity from these illustrations. The sign of hidden activations is not intrinsic to the fitted function; it can be flipped by symmetry.
 
 ### What each figure means
 
