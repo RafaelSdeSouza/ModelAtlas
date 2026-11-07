@@ -47,7 +47,7 @@ from modelatlas.functional_plot import (
 
 
 def build():
-    path = Path(__file__).resolve().parent.parent / "astronomy" / "sdss_dr8_galaxies.npz"
+    path = (Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd().parent) / "astronomy" / "sdss_dr8_galaxies.npz"
     with np.load(path, allow_pickle=False) as catalogue:
         X = catalogue["colors"]
         z = catalogue["redshift"]
