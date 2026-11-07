@@ -1,6 +1,29 @@
 Citation and sources
 ====================
 
+
+Creator and software authorship
+-------------------------------
+
+**Prof. Rafael S. de Souza** is the creator and scientific lead of
+ModelAtlas. Academic affiliations: Centre for Astrophysics Research,
+University of Hertfordshire (UK); Department of Physics and Astronomy,
+University of North Carolina at Chapel Hill (USA, adjunct affiliation).
+The UFRGS (Brazil) connection is through the CNPq Conhecimento Brasil
+research project, rather than an asserted employment appointment.
+
+The scientific project and its reproducible research-software implementation
+are documented in the repository. Development has included AI-assisted
+coding and documentation; responsibility for verification and scientific
+interpretation remains with the human project lead. Other human
+contributors should be credited according to their documented work.
+
+The recommended software attribution is: **de Souza, Rafael S.,
+ModelAtlas: Scientific Visualization of Fitted Models**, citing the exact
+released version or Git commit. An archival DOI is not yet available.
+See :doc:`creator` for the creator profile and academic affiliations.
+
+
 Cite the exact ModelAtlas version and commit that produced the analysis.
 Current development metadata is in
 `CITATION.cff <https://github.com/RafaelSdeSouza/ModelAtlas/blob/dev/research-package-and-docs/CITATION.cff>`__.
@@ -31,11 +54,6 @@ Data
 
 * NOAA National Geophysical Data Center. *Annual sunspot data (1700–2008)*.
   `Statsmodels data provenance <https://www.statsmodels.org/stable/datasets/generated/sunspots.html>`__.
-* Aeberhard, S., & Forina, M. (1992). *Wine*. UCI Machine Learning Repository.
-  `doi:10.24432/C5PC7J <https://doi.org/10.24432/C5PC7J>`__.
-* Wolberg, W., Mangasarian, O., Street, N., & Street, W. (1993).
-  *Breast Cancer Wisconsin (Diagnostic)*. UCI Machine Learning Repository.
-  `doi:10.24432/C5DW2B <https://doi.org/10.24432/C5DW2B>`__.
 
 The :doc:`sdss_data` page cites the SDSS releases and catalogues for the
 two observational SOM case studies.
