@@ -14,7 +14,6 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib import cm
 from scipy.stats import wasserstein_distance
 from modelatlas import (SOMMap,train_som,PhotoZCells,plot_photoz_map,plot_photoz_diagnostics)
 

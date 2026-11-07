@@ -1,271 +1,249 @@
-"""Scientific SOM input-to-prototype architecture: compact vector-native plot.
+"""Vector diagrams of input features and fitted SOM prototypes."""
 
-This drawing shows the genuine dense bipartite parameterization of a fitted
-SOM. There is one input *feature* node for each dimension and one colored
-output prism for each codebook vector; a segment (k, i, j) corresponds to the
-actual learned prototype coordinate w[i, j, k]. The SOM lattice is imposed
-2-D topology. Prism thickness is a rendering cue, not a learned third axis.
+from collections.abc import Sequence
 
-No sklearn/neural-network class is assumed; the call works on any SOMMap or
-finite codebook of shape (rows, columns, features).
-"""
-from __future__ import annotations
-
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import colormaps
+from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection
-from matplotlib.colors import Normalize, to_rgb
-from matplotlib.patches import Polygon, Circle
+from matplotlib.colors import to_rgb
+from matplotlib.figure import Figure
+from matplotlib.patches import Circle, Patch
+from numpy.typing import ArrayLike
 
+from ._lattice_plot import INK, add_colorbar, color_scale, draw_lattice
+from .geometry import ObliqueProjection
+from .lattice import Cell
+from .photoz import PhotoZBounds
 from .som import SOMMap
 
-FEATURE_COLORS = ('#2457C5', '#DF5348', '#119483', '#9364B2', '#D3A02D',
-                  '#3A95AF', '#B65E80', '#849142')
-
-
-def _shade(colour, factor):
-    return tuple(np.clip(np.asarray(to_rgb(colour))*factor, 0., 1.))
+FEATURE_COLORS = (
+    "#2457a5",
+    "#bd5140",
+    "#168076",
+    "#80599a",
+    "#a87422",
+    "#327b96",
+    "#ad567c",
+    "#69783b",
+)
 
 
 def plot_som_architecture(
-    som_or_codebook,
+    som_or_codebook: SOMMap | ArrayLike,
     *,
-    values=None,
-    metric_label=None,
-    feature_labels=None,
-    cmap='turbo',
-    value_range=None,
-    highlight=None,
-    show_connections='all',
-    emphasize_highlight=True,
-    show_neuron_centers=True,
-    show_colorbar=True,
-    depth=.40,
-    figsize=(5.30, 4.70),
-    hatch_mask=None,
-):
-    """Draw true input nodes, SOM prototype connections, and a tilted 3D map.
+    values: ArrayLike | None = None,
+    metric_label: str | None = None,
+    feature_labels: Sequence[str] | None = None,
+    cmap: str = "viridis",
+    value_range: tuple[float, float] | None = None,
+    highlight: Cell | None = None,
+    show_connections: str = "all",
+    emphasize_highlight: bool = True,
+    show_neuron_centers: bool = True,
+    show_colorbar: bool = True,
+    depth: float = 0.40,
+    figsize: tuple[float, float] = (6.0, 4.6),
+    hatch_mask: ArrayLike | None = None,
+    hatch_label: str | None = None,
+    projection: ObliqueProjection | None = None,
+    ax: Axes | None = None,
+) -> tuple[Figure, Axes]:
+    """Draw a fitted square or hexagonal SOM with input-to-prototype strands.
 
-    Parameters
-    ----------
-    som_or_codebook : SOMMap or array (rows,cols,features)
-        *Fitted* standardized SOM codebook. Each line is one actual w_ijk.
-    values : (rows,cols) array, optional
-        Measured/derived quantity to encode as prism color, e.g. photo-z
-        identified width. Defaults to codebook component 0.
-    metric_label : str, optional
-        Quantitative colorbar label, never inferred from model weights.
-    feature_labels : iterable of str, optional
-        Labels for input feature nodes. Defaults to SOMMap.feature_labels.
-    value_range : (lo,hi), optional
-        Lock color normalization across comparable figures.
-    highlight : (row,col), optional
-        Output prototype to outline and connect prominently.
-    show_connections : {'all','selected','none'}
-        'all' draws n_features * n_neurons real links; 'selected' only the
-        highlighted prototype's links, and 'none' draws no links.
-    emphasize_highlight : bool
-        Enlarge color-coded links to the highlighted prototype. Color identifies
-        the feature; line thickness reflects absolute standardized component.
-        There is no implied causal or predictive feature importance.
-    show_neuron_centers : bool
-        Mark actual output SOM neurons with small center dots on their prisms.
-    depth : float
-        Constant visual extrusion in projected units; *not* an inferred axis.
-    hatch_mask : (rows,cols) bool array, optional
-        Mark cells with no observed spectroscopy using diagonal hatch.
-    
-    Returns
-    -------
-    (fig, ax) : Matplotlib Figure and Axes for PNG, SVG or PDF export.
+    Cap color is the supplied cell scalar or prototype component zero. Set
+    value_range and projection explicitly for comparable figures. One line
+    represents one codebook component. Faint lines use feature color only.
+    Highlighted line widths encode the absolute component divided by the
+    90th percentile for that feature, with clipping. Prism depth is constant
+    in lattice units. show_connections accepts 'all', 'selected' or 'none'.
+
+    A raw array uses rectangular topology. Pass a SOMMap for hexagonal
+    topology. At most eight input features fit this compact labeled view.
     """
-    M = som_or_codebook if isinstance(som_or_codebook,SOMMap) else SOMMap(np.asarray(som_or_codebook))
-    rows, cols, nfeatures=M.codebook.shape
-    if nfeatures > 8:
-        raise ValueError('More than 8 input nodes is too dense for this view; select or group input features explicitly')
-    if nfeatures < 1:
-        raise ValueError('codebook has no input features')
-    if show_connections not in ('all','selected','none'):
-        raise ValueError("show_connections must be 'all', 'selected', or 'none'")
-    if show_connections == 'selected' and highlight is None:
-        raise ValueError("show_connections='selected' requires a highlight neuron")
-    if highlight is not None:
-        if len(highlight)!=2 or not (0<=highlight[0]<rows and 0<=highlight[1]<cols):
-            raise ValueError('highlight must be a valid (row,col)')
-        highlight=tuple(map(int, highlight))
-    if not (.1<=depth<=.9):
-        raise ValueError('depth must be between .1 and .9')
-    if feature_labels is None:
-        feature_labels=M.feature_labels or tuple(f'$x_{{{j+1}}}$' for j in range(nfeatures))
-    if len(feature_labels)!=nfeatures:
-        raise ValueError('one label per feature is required')
-
+    som = (
+        som_or_codebook
+        if isinstance(som_or_codebook, SOMMap)
+        else SOMMap(np.asarray(som_or_codebook))
+    )
+    if som.n_features > 8:
+        raise ValueError("select or group input features explicitly for more than eight inputs")
+    if not 0.10 <= depth <= 0.90:
+        raise ValueError("depth must be between 0.10 and 0.90 lattice units")
+    if feature_labels is not None and len(feature_labels) != som.n_features:
+        raise ValueError("one label per feature is required")
     if values is None:
-        values=M.display_codebook[...,0] if M.display_codebook is not None else M.codebook[...,0]
-        metric_label=metric_label or str(feature_labels[0]) + ' · prototype value'
+        display = som.codebook if som.display_codebook is None else som.display_codebook
+        values = display[..., 0]
+        names = feature_labels if feature_labels is not None else som.feature_labels
+        name = "Feature 1" if names is None else names[0]
+        unit = som.feature_units[0] if som.feature_units else ""
+        metric_label = metric_label or (f"{name} ({unit})" if unit else f"{name} prototype value")
+    return _plot_som_with_inputs(
+        som,
+        values,
+        metric_label or "Cell metric",
+        feature_labels=feature_labels,
+        cmap=cmap,
+        value_range=value_range,
+        highlight=highlight,
+        show_connections=show_connections,
+        emphasize_highlight=emphasize_highlight,
+        show_neuron_centers=show_neuron_centers,
+        show_colorbar=show_colorbar,
+        depth=depth,
+        figsize=figsize,
+        hatch_mask=hatch_mask,
+        hatch_label=hatch_label,
+        projection=projection or ObliqueProjection(),
+        ax=ax,
+    )
+
+
+def _plot_som_with_inputs(
+    som: SOMMap,
+    values: ArrayLike,
+    metric_label: str,
+    *,
+    feature_labels: Sequence[str] | None,
+    cmap: str,
+    value_range: tuple[float, float] | None,
+    highlight: Cell | None,
+    show_connections: str,
+    emphasize_highlight: bool,
+    show_neuron_centers: bool,
+    show_colorbar: bool,
+    depth: ArrayLike,
+    figsize: tuple[float, float],
+    projection: ObliqueProjection,
+    ax: Axes | None,
+    hatch_mask: ArrayLike | None = None,
+    hatch_label: str | None = None,
+    depth_label: str | None = None,
+) -> tuple[Figure, Axes]:
+    values = np.asarray(values, dtype=float)
+    nf = som.n_features
+    if values.shape != som.lattice.shape:
+        raise ValueError("values must match the SOM lattice")
+    if show_connections not in ("all", "selected", "none"):
+        raise ValueError("show_connections must be 'all', 'selected', or 'none'")
+    if show_connections == "selected" and highlight is None:
+        raise ValueError("selected connections require a highlight neuron")
+    if highlight is not None:
+        highlight = tuple(highlight)
+        som.lattice.hop_distances(highlight)
+    labels = som.feature_labels if feature_labels is None else feature_labels
+    if labels is None:
+        labels = [f"x{j + 1}" for j in range(nf)]
+    if len(labels) != nf:
+        raise ValueError("one label per feature is required")
+    hatch = None if hatch_mask is None else np.asarray(hatch_mask, dtype=bool)
+    if hatch is not None and hatch.shape != values.shape:
+        raise ValueError("hatch_mask must match the SOM lattice")
+    norm, ticks = color_scale(values, value_range)
+    color_map = colormaps[cmap]
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize, layout="constrained")
     else:
-        values=np.asarray(values, dtype=float)
-        metric_label=metric_label or 'Cell metric'
-    if values.shape != (rows,cols) or np.isinf(values).any() or not np.any(np.isfinite(values)):
-        raise ValueError('values must match the SOM lattice and contain finite data')
-    if hatch_mask is not None:
-        hatch_mask=np.asarray(hatch_mask,bool)
-        if hatch_mask.shape != (rows,cols):
-            raise ValueError('hatch_mask must match the SOM lattice')
+        fig = ax.figure
 
-    lo=float(np.nanmin(values)) if value_range is None else float(value_range[0])
-    hi=float(np.nanmax(values)) if value_range is None else float(value_range[1])
-    if not np.isfinite([lo,hi]).all() or lo>hi:
-        raise ValueError('value range invalid')
-    if np.isclose(lo,hi): hi=lo+1
-    norm=Normalize(lo,hi,clip=True)
-    cm=colormaps[cmap]
+    positions = draw_lattice(
+        ax,
+        som.lattice,
+        values,
+        norm=norm,
+        cmap=color_map,
+        projection=projection,
+        depth=depth,
+        highlight=highlight,
+        hatch=hatch,
+        show_centers=show_neuron_centers,
+    )
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
+    left = xmin - max(0.68, 0.16 * (xmax - xmin))
+    pad = max(0.40, 0.15 * (ymax - ymin))
+    ys = np.linspace(ymax - pad, ymin + pad, nf) if nf > 1 else [(ymax + ymin) / 2]
+    colors = [FEATURE_COLORS[k % len(FEATURE_COLORS)] for k in range(nf)]
+    segments = []
+    if show_connections == "all":
+        links = positions.reshape(-1, 2)
+        segments = [[(left, y), p] for y in ys for p in links]
+        strand_colors = [(*to_rgb(color), 0.16) for color in colors for _ in links]
+        ax.add_collection(LineCollection(segments, colors=strand_colors, lw=0.42, zorder=0.5))
 
-    fig,ax=plt.subplots(figsize=figsize,dpi=240)
-    fig.patch.set_facecolor('white'); ax.set_facecolor('white')
-    fig.subplots_adjust(left=.008,right=.996,top=.995,bottom=.004)
-    ax.set_axis_off()
-    ax.set_aspect('equal',adjustable='box')
-    ax.set_xlim(-.01,1.55); ax.set_ylim(.005,1.17)
-
-    # One axonometric projection shared by codebook, neurons and input-to-unit
-    # links. No mpl_toolkits.mplot3d painter artefacts, no raster layers.
-    base=np.array([.560,1.080])
-    vrow=np.array([.041,-.073]) * 8/max(rows-1,1)
-    vcol=np.array([.065,-.026]) * 8/max(cols-1,1)
-    vextr=np.array([.020,.205]) * depth
-    gap=.064
-    half=(1-gap)/2
-    def project(r,c):return base+float(r)*vrow+float(c)*vcol
-
-    # Left input nodes: exactly one node per fitted feature.
-    nx=.184
-    ny=np.linspace(.826,.246,nfeatures) if nfeatures>1 else np.array([.51])
-
-    # Every faint strand is grounded in the real prototype matrix. For SOMs
-    # the codebook is a collection of fitted prototype vectors, not the same
-    # as a sequence of trainable interlayer matrices in a generic MLP.
-    segments=[]; colors=[]; widths=[]
-    if show_connections=='all':
-        for k,y in enumerate(ny):
-            for i in range(rows):
-                for j in range(cols):
-                    segments.append([(nx+.013,y),project(i,j)])
-                    colors.append((*to_rgb(FEATURE_COLORS[k]),.115))
-                    widths.append(.34)
-        ax.add_collection(LineCollection(segments,colors=colors,linewidths=widths,
-                         zorder=1,capstyle='round', antialiaseds=True))
-
-    if highlight is not None and show_connections!='none' and emphasize_highlight:
-        hi_,hj=highlight
-        raw=M.codebook[hi_,hj,:]
-        # Normalize within feature across prototypes; do not confound numerical
-        # units, especially g-r vs i magnitude. Used for *visibility* only.
-        denom=np.percentile(np.abs(M.codebook),90,axis=(0,1))
-        strength=np.clip(np.abs(raw)/np.maximum(denom,1e-8),0,1)
-        for k,y in enumerate(ny):
-            # Emphasized selected links appear before prisms: correct occlusion.
-            a=.42+.30*strength[k]
-            ax.plot([nx+.018,project(hi_,hj)[0]], [y,project(hi_,hj)[1]],
-                    color=(*to_rgb(FEATURE_COLORS[k]),a),
-                    lw=1.05+1.12*strength[k], zorder=2, solid_capstyle='round')
-
-    # Soft shadow beneath lattice, excluding any disconnected presentation
-    # elements. Shadow is a depth cue, not measured data.
-    polygon=np.array([project(-half,-half),project(-half,cols-1+half),
-             project(rows-1+half,cols-1+half),project(rows-1+half,-half)])
-    ax.add_patch(Polygon(polygon-vextr+(.020,-.042),closed=True,
-                 facecolor='#1A2540',edgecolor='none',alpha=.055,zorder=3))
-
-    draw_order=sorted(((i,j) for i in range(rows) for j in range(cols)),
-                      key=lambda ij:(ij[0]+ij[1],ij[0]))
-    neuron_centers=[]
-    for i,j in draw_order:
-        p=np.array([project(i-half,j-half), project(i-half,j+half),
-                    project(i+half,j+half), project(i+half,j-half)])
-        bottom=p-vextr
-        if np.isfinite(values[i,j]):
-            color=cm(norm(values[i,j]))
-        else:
-            color=('#D0D5DE')
-        z=10+.028*(i+j)+.0002*i
-        ax.add_patch(Polygon([p[1],p[2],bottom[2],bottom[1]],
-                     facecolor=_shade(color,.55),edgecolor='#25334A',
-                     lw=.28,zorder=z))
-        ax.add_patch(Polygon([p[2],p[3],bottom[3],bottom[2]],
-                     facecolor=_shade(color,.78),edgecolor='#25334A',
-                     lw=.28,zorder=z+.001))
-        ax.add_patch(Polygon(p,facecolor=color,
-                     edgecolor='#19324A',lw=.34,zorder=z+.002,joinstyle='miter'))
-        if hatch_mask is not None and hatch_mask[i,j]:
-            ax.add_patch(Polygon(p,facecolor='none',edgecolor='#25334A',
-                         lw=.15,hatch='////',zorder=z+.003))
-        if show_neuron_centers:
-            # A small visible mark centered on every output prototype tile.
-            center=project(i,j)
-            neuron_centers.append(center)
-            ax.add_patch(Circle(center,.0042,facecolor='#0C253D',
-                         edgecolor='none',alpha=.70,zorder=z+.004))
-        if highlight == (i,j):
-            ax.add_patch(Polygon(p,facecolor='none',edgecolor='white',
-                         lw=1.85,zorder=z+.005))
-            ax.add_patch(Circle(project(i,j),.016,facecolor='white',
-                         edgecolor='#162238',lw=1.30,zorder=z+.006))
-            ax.add_patch(Circle(project(i,j),.0042,facecolor='#14223A',
-                         edgecolor='none',zorder=z+.007))
-
-    for k,y in enumerate(ny):
-        col=FEATURE_COLORS[k]
-        ax.add_patch(Circle((nx,y),.0188,facecolor=col,edgecolor='white',
-                     lw=1.45,zorder=60))
-        ax.text(nx-.031,y,str(feature_labels[k]),fontsize=10.2,color='#2A3447',
-                ha='right',va='center',zorder=61)
-
+    highlighted = highlight is not None and show_connections != "none" and emphasize_highlight
+    if highlight is not None and (highlighted or show_connections == "selected"):
+        strengths = np.abs(som.codebook[highlight])
+        normalizer = np.percentile(np.abs(som.codebook), 90, axis=(0, 1)).clip(1e-8)
+        position = positions[highlight]
+        for y, color, strength in zip(ys, colors, np.clip(strengths / normalizer, 0, 1)):
+            ax.plot(
+                [left, position[0]],
+                [y, position[1]],
+                color=color,
+                alpha=0.45 + 0.3 * strength if highlighted else 0.38,
+                lw=0.75 + 1.15 * strength if highlighted else 0.55,
+                zorder=1,
+            )
+    for y, color, label in zip(ys, colors, labels):
+        ax.add_patch(Circle((left, y), 0.078, fc=color, ec="white", lw=0.7, zorder=4))
+        ax.text(left - 0.15, y, label, fontsize=9, ha="right", va="center", color=INK)
+    ax.set_xlim(left - max(0.66, (xmax - xmin) * 0.18), xmax)
     if show_colorbar:
-        x0,x1=.84,1.50
-        y0,y1=.084,.102
-        for n in range(115):
-            a=n/115;b=(n+1)/115
-            ax.add_patch(Polygon([(x0+(x1-x0)*a,y0),(x0+(x1-x0)*b,y0),
-                         (x0+(x1-x0)*b,y1),(x0+(x1-x0)*a,y1)],
-                         facecolor=cm((a+b)/2),edgecolor='none',zorder=70))
-        ax.text((x0+x1)/2,.125,metric_label,fontsize=9.2,
-                color='#3B4556',ha='center',va='bottom',zorder=70)
-        f=lambda v: f'{v:.0f}' if abs(v)>=10 else f'{v:.2f}'
-        ax.text(x0,.073,f(lo),fontsize=8.5,color='#596578',ha='left',va='top')
-        ax.text(x1,.073,f(hi),fontsize=8.5,color='#596578',ha='right',va='top')
+        add_colorbar(fig, ax, norm, color_map, metric_label, ticks)
+    if hatch_label and hatch is not None and np.any(hatch):
+        ax.legend(
+            handles=[Patch(fc="white", ec=INK, hatch="///", label=hatch_label)],
+            loc="upper left",
+            fontsize=7.5,
+            frameon=False,
+        )
+    if depth_label:
+        ax.text(0.02, 0.02, depth_label, transform=ax.transAxes, fontsize=7.5, color=INK)
+    setattr(
+        ax,
+        "_modelatlas_architecture",
+        {
+            "features": nf,
+            "neurons": som.rows * som.cols,
+            "connections": len(segments),
+            "highlighted_connections": nf if highlighted else 0,
+            "highlight": highlight,
+            "units": "fitted codebook components",
+            "colored_metric": metric_label,
+            "topology": som.topology,
+        },
+    )
+    return fig, ax
 
-    # Testable metadata—one segment per real codebook component.
-    ax._modelatlas_architecture={
-        'features':nfeatures, 'neurons':rows*cols,
-        'connections':len(segments), 'highlighted_connections':
-        (nfeatures if highlight is not None and show_connections!='none' and emphasize_highlight else 0),
-        'highlight':highlight, 'units': 'standardized codebook components',
-        'colored_metric':metric_label,
-    }
-    return fig,ax
 
+def plot_photoz_architecture(
+    bounds: PhotoZBounds,
+    som: SOMMap | ArrayLike,
+    *,
+    metric: str = "identified_width",
+    **kwargs,
+) -> tuple[Figure, Axes]:
+    """Color the fitted SOM architecture by a photo-z cell diagnostic."""
+    from .photoz_plot import _METRICS, _FRACTION_METRICS
 
-def plot_photoz_architecture(bounds, som, *, metric='identified_width', **kwargs):
-    """Use photo-z identified cell metrics to color the fitted SOM network.
-
-    Requires the SOM separately because PhotoZBounds deliberately contains
-    identification results only, not the model's fitted codebook.
-    """
-    from .photoz import PhotoZBounds
-    from .photoz_plot import _METRICS
-    if not isinstance(bounds,PhotoZBounds):
-        raise TypeError('bounds must be a PhotoZBounds')
+    if not isinstance(bounds, PhotoZBounds):
+        raise TypeError("bounds must be a PhotoZBounds")
     if metric not in _METRICS:
-        raise ValueError('unknown photo-z metric')
-    label,_=_METRICS[metric]
-    m=som if isinstance(som,SOMMap) else SOMMap(som)
-    if m.codebook.shape[:2]!=bounds.n_target.shape:
-        raise ValueError('som and bounds must have matching lattice')
-    defaults={'metric_label':label, 'value_range':(0.,1.),
-              'hatch_mask':bounds.unidentified}
-    if metric in ('target_occupancy','population_width_contribution'):
-        defaults.pop('value_range')
+        raise ValueError(f"unknown photo-z metric: {metric}")
+    m = som if isinstance(som, SOMMap) else SOMMap(np.asarray(som))
+    if m.lattice.shape != bounds.n_target.shape or m.topology != bounds.topology:
+        raise ValueError("som and bounds must have matching shape and topology")
+    label, cmap = _METRICS[metric]
+    defaults = {
+        "metric_label": label,
+        "cmap": cmap,
+        "hatch_mask": bounds.unidentified,
+        "hatch_label": "No usable spectroscopic redshift",
+    }
+    if metric in _FRACTION_METRICS:
+        defaults["value_range"] = (0.0, 1.0)
     defaults.update(kwargs)
-    return plot_som_architecture(m,values=bounds.metric(metric),**defaults)
+    return plot_som_architecture(m, values=bounds.metric(metric), **defaults)

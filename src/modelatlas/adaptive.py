@@ -11,7 +11,12 @@ Bishop, Svensen & Williams (1998), The Generative Topographic Mapping.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from operator import index
+
 import numpy as np
+from scipy.special import logsumexp, softmax
+
+from .photoz import _validate_partition, _validate_sensitivity, sharp_tail_bounds
 
 
 def _matrix(x):
@@ -27,6 +32,16 @@ def _sqdist(x, w):
                       - 2.0 * x @ w.T, 0.0)
 
 
+def _prototype_distances(x, prototypes):
+    observations = np.asarray(x, dtype=float)
+    if (
+        observations.ndim != 2 or observations.shape[1] != prototypes.shape[1]
+        or not np.isfinite(observations).all()
+    ):
+        raise ValueError("observations must be finite and match the fitted feature dimension")
+    return _sqdist(observations, prototypes)
+
+
 @dataclass
 class PrototypeGraph:
     """Unsupervised prototypes with learned (non-grid) connections."""
@@ -38,16 +53,18 @@ class PrototypeGraph:
     def __post_init__(self):
         w = np.asarray(self.prototypes, float)
         a = np.asarray(self.adjacency, bool)
-        if w.ndim != 2 or a.shape != (len(w), len(w)) or not np.all(np.isfinite(w)):
+        if w.ndim != 2 or min(w.shape) < 1 or a.shape != (len(w), len(w)) or not np.isfinite(w).all():
             raise ValueError("Invalid prototypes or adjacency")
         if np.any(a != a.T) or np.any(np.diag(a)):
             raise ValueError("adjacency must be undirected and loop-free")
         self.prototypes = w
         self.adjacency = a
         self.errors = np.asarray(self.errors, float)
+        if self.errors.shape != (len(w),) or not np.isfinite(self.errors).all() or np.any(self.errors < 0):
+            raise ValueError("errors must be finite and nonnegative, one per prototype")
 
     def assign(self, x):
-        return np.argmin(_sqdist(np.asarray(x, float), self.prototypes), axis=1)
+        return np.argmin(_prototype_distances(x, self.prototypes), axis=1)
 
     @property
     def edges(self):
@@ -65,6 +82,9 @@ def growing_neural_gas(x, max_nodes=64, steps=16000, insertion_interval=240,
     This is a teaching/research implementation, not a production optimizer.
     """
     x = _matrix(x)
+    max_nodes, steps, insertion_interval, max_edge_age = map(index, (max_nodes, steps, insertion_interval, max_edge_age))
+    if not (0 < winner_lr <= 1 and 0 <= neighbor_lr <= 1 and 0 < error_decay <= 1 and max_edge_age >= 0):
+        raise ValueError("invalid GNG learning rates, decay, or edge age")
     if max_nodes < 3 or steps < insertion_interval or insertion_interval < 2:
         raise ValueError("Invalid GNG capacity or training schedule")
     rng = np.random.default_rng(seed)
@@ -122,7 +142,13 @@ class GTMModel:
     basis: np.ndarray
     regression_weights: np.ndarray
     loss_history: np.ndarray
+
+    def responsibilities(self, x):
+        """Posterior latent-cell probabilities under uniform mixture weights."""
+        return softmax(-0.5 * self.beta * _prototype_distances(x, self.prototypes), axis=1)
+
     def assign(self, x):
+        """Return MAP latent cells as row-major prototype indices."""
         return np.argmin(_sqdist(np.asarray(x,float), self.prototypes), axis=1)
 
 
@@ -131,12 +157,15 @@ def train_gtm(x, grid=(8,8), rbf_grid=(4,4), n_iter=70, ridge=0.005, seed=31):
 
     Soft assignments are used for fitting and hard MAP assignments for the
     downstream *comparison only*. Ridge regularization stabilizes the M step.
-    Beta is isotropic precision, constrained to a finite sensible range.
+    Beta is isotropic precision, constrained to a finite range. Initialization
+    uses SVD and is deterministic. The legacy seed argument has no effect.
     """
     x = _matrix(x)
-    from scipy.special import logsumexp
-    rows, cols = grid
-    p, q = rbf_grid
+    rows, cols = map(index, grid)
+    p, q = map(index, rbf_grid)
+    n_iter = index(n_iter)
+    if not np.isfinite(ridge) or ridge <= 0:
+        raise ValueError("ridge must be finite and positive")
     if min(rows,cols,p,q) < 2 or n_iter < 1: raise ValueError('bad GTM grid')
     rr, cc = np.meshgrid(np.linspace(-1,1,rows),np.linspace(-1,1,cols),indexing='ij')
     latent = np.c_[rr.ravel(),cc.ravel()]
@@ -179,11 +208,11 @@ def partition_tail_bounds(assignments, spec_z, n_nodes, z0=1.2, gamma=0.16):
     gamma=None means no assumption, gamma=0 exact transfer.
     Outputs are *identification* intervals, not confidence intervals.
     """
-    from .photoz import sharp_tail_bounds
-    ids=np.asarray(assignments,int)
-    z=np.asarray(spec_z,float)
-    if len(ids)!=len(z) or np.any(ids<0) or np.any(ids>=n_nodes):
-        raise ValueError('invalid assignments or spec_z')
+    n_nodes = index(n_nodes)
+    _validate_sensitivity(z0, gamma)
+    ids, z = _validate_partition(assignments, n_nodes, spec_z)
+    if z is None:
+        raise ValueError("spec_z is required; use NaN for missing spectra")
     n=np.bincount(ids,minlength=n_nodes)
     ok=np.isfinite(z)
     s=np.bincount(ids[ok],minlength=n_nodes)

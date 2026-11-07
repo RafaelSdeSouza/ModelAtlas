@@ -1,190 +1,268 @@
-"""Matplotlib oblique scientific renderers for symmetry-aligned tanh MLPs.
+"""Matplotlib comparisons in shared hidden-unit coordinates."""
 
-A 2.5D deterministic rendering: neuron coordinates are shared comparison
-coordinates, not spatial positions learned by a neural network. Shape/color/
-connections are computed from fitted activations and weight matrices.
-"""
 from pathlib import Path
 
-import numpy as np
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import colormaps
 from matplotlib.collections import LineCollection
-from matplotlib.colors import to_rgb, Normalize
-from matplotlib.patches import Polygon, Circle
+from matplotlib.colors import Normalize, to_rgb
+from matplotlib.patches import Circle, Polygon
 
-from .symmetry import activations
+from ._lattice_plot import INK, add_colorbar
+from .export import save_figure
+from .symmetry import _paired_corr, _tanh_parameters, activations
 
-INK='#18324A'; SUB='#597082'; RUST='#BD6549'; BLUE='#397DA7'; WHITE='#FFFFFF'
-
-
-def _shade(color,scale):
-    return tuple(np.clip(np.array(to_rgb(color))*scale,0,1))
+BLUE, RUST = "#33799e", "#ae553d"
 
 
-def _xy(org,row,col):
-    return np.asarray(org) + row*np.array([.16,-.45]) + col*np.array([.49,-.135])
+def _layout(widths):
+    """Use fixed input slots and shared, affine projections of hidden grids."""
+    n_in, n_1, n_2, _ = widths
+    ys = np.linspace(2.45, 0.48, n_in) if n_in > 1 else [1.45]
+    points = [np.column_stack((np.full(n_in, 0.60), ys))]
+    corners = []
+    for n, anchor in zip((n_1, n_2), ([2.55, 2.60], [5.30, 2.40])):
+        cols = int(np.ceil(np.sqrt(n)))
+        row, col = np.divmod(np.arange(n), cols)
+        size = 4 / max(4, cols)
+        vrow = size * np.array([0.17, -0.40])
+        vcol = size * np.array([0.45, -0.13])
+        center = np.asarray(anchor) + row[:, None] * vrow + col[:, None] * vcol
+        points.append(center)
+        offsets = 0.45 * np.stack((-vrow - vcol, -vrow + vcol, vrow + vcol, vrow - vcol))
+        corners.append(center[:, None, :] + offsets)
+    points.append(np.array([[8.1, 1.37]]))
+    return points, corners
 
 
-def _tile(ax,org,row,col,color,depth=.13,level=4):
-    half=.46
-    pts=np.array([_xy(org,row-half,col-half),_xy(org,row-half,col+half),
-                  _xy(org,row+half,col+half),_xy(org,row+half,col-half)])
-    side=np.array([.105,-depth])
-    ax.add_patch(Polygon([pts[1],pts[2],pts[2]+side,pts[1]+side],facecolor=_shade(color,.68),edgecolor=INK,linewidth=.36,zorder=level))
-    ax.add_patch(Polygon([pts[2],pts[3],pts[3]+side,pts[2]+side],facecolor=_shade(color,.8),edgecolor=INK,linewidth=.38,zorder=level+.02))
-    ax.add_patch(Polygon(pts,facecolor=color,edgecolor='#19364c',linewidth=.58,zorder=level+.08))
+def _draw_network(ax, points, corners, matrices, scales, hidden, norm, cmap, inputs, out, rings=()):
+    ax.set(xlim=(0.26, 8.66), ylim=(0.04, 3.07), aspect="equal")
+    ax.set_axis_off()
+    for matrix, scale, left, right in zip(matrices, scales, points[:-1], points[1:]):
+        endpoints = [[a, b] for a in left for b in right]
+        strengths = np.clip(np.abs(matrix.ravel()) / scale, 0, 1)
+        colors = [
+            (*to_rgb(BLUE if w < 0 else RUST), 0.04 + 0.35 * strength)
+            for w, strength in zip(matrix.ravel(), strengths)
+        ]
+        ax.add_collection(
+            LineCollection(endpoints, colors=colors, lw=0.25 + 0.9 * strengths, zorder=1)
+        )
+    for positions, faces, values in zip(points[1:-1], corners, hidden):
+        for rank, k in enumerate(np.argsort(-positions[:, 1], kind="stable")):
+            z = 2 + rank / (len(positions) + 1)
+            tile = faces[k]
+            base = tile + [0.10, -0.14]
+            color = cmap(norm(values[k]))
+            for (i, j), shade in [((1, 2), 0.62), ((2, 3), 0.78)]:
+                face = np.asarray(to_rgb(color)) * shade
+                ax.add_patch(
+                    Polygon(
+                        [tile[i], tile[j], base[j], base[i]], fc=face, ec=INK, lw=0.40, zorder=z
+                    )
+                )
+            ax.add_patch(Polygon(tile, fc=color, ec=INK, lw=0.48, zorder=z + 0.004))
+            ax.add_patch(Circle(positions[k], 0.024, fc=INK, ec="none", zorder=z + 0.007))
+    for point, color in zip(points[0], inputs):
+        ax.add_patch(Circle(point, 0.077, fc=color, ec=INK, lw=0.65, zorder=4))
+    for idx in rings:
+        ax.add_patch(Circle(points[-2][idx], 0.080, fc="none", ec="white", lw=1.7, zorder=5))
+    ax.add_patch(Circle(points[-1][0], 0.155, fc="#e9c594", ec=INK, lw=0.85, zorder=4))
+    ax.annotate(
+        out,
+        points[-1][0],
+        xytext=(0, -23),
+        textcoords="offset points",
+        ha="center",
+        color=INK,
+        fontsize=9,
+    )
 
 
-def _settings(ax):
-    ax.set_aspect('equal',adjustable='box');ax.axis('off');ax.set_facecolor('white')
+def _comparison_layout(model, aligned):
+    shapes = [np.shape(w) for w in model.coefs_]
+    if len(shapes) != 3 or shapes != [w.shape for w in aligned.coefs]:
+        raise ValueError("oblique comparison requires two matching hidden layers")
+    widths = (shapes[0][0], *(s[1] for s in shapes))
+    if widths[0] > 18 or widths[1] > 36 or widths[2] > 25:
+        raise ValueError("compact comparison supports at most 18 inputs and 36/25 hidden units")
+    return _layout(widths)
 
 
-def _network(ax,coefs,biases,x,base,tag,summary,highlight=True):
-    layers,logits,prob=activations(coefs,biases,x[None,:])
-    h1=layers[1].ravel();h2=layers[2].ravel()
-    o1=np.array([2.80,base+2.25]);o2=np.array([5.6,base+2.00]);out=np.array([8.55,base+.92]);xin=.72
-    ys=np.linspace(base+2.22,base-.25,8)
-    n1=[_xy(o1,*divmod(i,4)) for i in range(16)];n2=[_xy(o2,*divmod(i,3)) for i in range(9)]
-    lines=[];colors=[];widths=[]
-    for W,pp,qq in [(coefs[0],[(xin,float(v)) for v in ys],n1),
-                    (coefs[1],n1,n2),(coefs[2],n2,[out])]:
-        norm=max(float(np.quantile(abs(W),.91)),1e-9)
-        for i,u in enumerate(pp):
-            for j,v in enumerate(qq):
-                w=float(W[i,j]);value=min(abs(w)/norm,1.25)
-                lines.append([u,v]);colors.append((*to_rgb(BLUE if w>0 else RUST), .043+.20*value))
-                widths.append(.25+.41*value)
-    ax.add_collection(LineCollection(lines,colors=colors,linewidths=widths,zorder=1))
-    for i,yy in enumerate(ys):
-        col=plt.get_cmap('coolwarm')(.5+.44*np.tanh(x[i]/2.0))
-        ax.add_patch(Circle((xin,yy),.085,facecolor=col,edgecolor=INK,linewidth=.8,zorder=30))
-    # Lattice positions are identical for both models, after symmetry matching.
-    for org,values,width,nodes in [(o1,h1,4,n1),(o2,h2,3,n2)]:
-        ax.add_patch(Polygon(np.asarray([_xy(org,-.52,-.52),_xy(org,-.52,width-.48),
-                           _xy(org,len(nodes)//width-.48,width-.48),_xy(org,len(nodes)//width-.48,-.52)])+np.array([.07,-.23]),
-                           facecolor='#4d6c82',edgecolor='none',alpha=.085,zorder=2))
-        for k in sorted(range(len(values)),key=lambda k:sum(divmod(k,width))):
-            r,c=divmod(k,width)
-            color=plt.get_cmap('coolwarm')(.5+.45*np.clip(values[k],-1,1))
-            z=4+(.14*r+.07*c)
-            _tile(ax,org,r,c,color,level=z)
-            p=nodes[k]
-            ax.add_patch(Circle(p,.027,facecolor=INK,edgecolor='none',zorder=z+.20))
-    if highlight:
-        # This ranks output-layer logit terms h2_j * W_out,j (not causal attribution).
-        scores=np.abs(h2*coefs[-1].ravel());inds=np.argsort(scores)[-3:]
-        for rank,i in enumerate(inds):
-            ax.add_patch(Circle(n2[i],.090,facecolor='white',edgecolor='#172F49',linewidth=1.35,zorder=23))
-            ax.add_patch(Circle(n2[i],.032,facecolor=RUST if h2[i]*coefs[-1][i,0]>0 else BLUE,
-                                edgecolor='none',zorder=24))
-    col=plt.get_cmap('coolwarm')(.5+.42*(2*prob[0]-1))
-    ax.add_patch(Circle(out,.150,facecolor=col,edgecolor=INK,linewidth=1.15,zorder=25))
-    ax.text(out[0],out[1]-.25,f'{prob[0]:.3f}',ha='center',va='top',fontsize=11.5,color=INK)
-    ax.text(.65,base+2.78,tag,fontsize=13,color=INK,weight='medium')
-    ax.text(out[0],out[1]+.27,'P(Y=1)',ha='center',fontsize=9,color=SUB)
-    ax.text(.65,base-0.43,summary,fontsize=9,color=SUB)
+def _weight_scales(first, second=None):
+    groups = (
+        first if second is None else [np.r_[a.ravel(), b.ravel()] for a, b in zip(first, second)]
+    )
+    return [max(float(np.percentile(np.abs(group), 95)), 1e-12) for group in groups]
 
 
-def _export(fig,outstem):
-    outstem=Path(outstem);outstem.parent.mkdir(parents=True,exist_ok=True)
-    for extension in ('png','svg','pdf'):
-        fig.savefig(outstem.with_suffix('.'+extension),dpi=250,facecolor='white',bbox_inches='tight',pad_inches=.14)
-    plt.close(fig)
+def plot_independent_pair(
+    modelA,
+    alignedB,
+    x,
+    title="Independent tanh MLPs",
+    label="positive class",
+    metrics=None,
+    directory=None,
+):
+    """Plot two fitted tanh MLPs with identical slots, cameras and weight scales.
 
-
-def plot_independent_pair(modelA,alignedB,x,title,label,metrics,directory):
-    """Same input and layer coordinates; differences come from different fits."""
-    fig,ax=plt.subplots(figsize=(9.6,10.25),dpi=200)
-    fig.patch.set_facecolor('white');_settings(ax)
-    ax.set_xlim(.24,9.2);ax.set_ylim(.05,9.85)
-    ax.text(.65,9.68,f'{title}  ·  independent fits',fontsize=13.5,color=INK,weight='medium')
-    s1=f"test AUC {metrics['test_auc_A']:.3f}  ·  seed {metrics['seed_A']}"
-    s2=f"test AUC {metrics['test_auc_B']:.3f}  ·  seed {metrics['seed_B']}"
-    _network(ax,modelA.coefs_,modelA.intercepts_,x,5.93,'A  ·  reference network',s1)
-    _network(ax,alignedB.coefs,alignedB.intercepts,x,1.55,'B  ·  symmetry-aligned independent fit',s2)
-    ax.plot([.57,8.87],[5.18,5.18],color='#e3eaf0',linewidth=1)
-    diff=abs(metrics['selected_p_A']-metrics['selected_p_B'])
-    ax.text(4.71,.38,f"Same observation; held-out prediction difference = {diff:.3f}",ha='center',fontsize=9.3,color=INK)
-    ax.text(4.71,.10,'Tile color: tanh activation   ·   edge hue: signed weight   ·   dark rings: strongest output logit terms',ha='center',fontsize=7.6,color=SUB)
-    _export(fig,Path(directory)/'independent_networks_aligned')
-
-
-def plot_residual_atlas(modelA,alignedB,X_holdout,title,metrics,directory):
-    """A single oblique atlas of residual hidden activation differences.
-
-    RMS over held-out observations is displayed on the shared neuron grid.
-    Edge differences are between *aligned parameters*, not attributions.
+    Prism hue is signed tanh activation (fixed range -1 to 1). Edges show
+    signed fitted weights with pooled per-layer 95th percentile scaling.
+    Rings show the largest absolute final logit terms, excluding the bias.
+    Optional metrics supplies held-out AUC labels. Directory saves all formats.
     """
-    first=activations(modelA.coefs_,modelA.intercepts_,X_holdout)
-    second=activations(alignedB.coefs,alignedB.intercepts,X_holdout)
-    m1,m2=[np.sqrt(np.mean((first[0][i]-second[0][i])**2,axis=0)) for i in (1,2)]
-    coefsA=modelA.coefs_;coefsB=alignedB.coefs
-    fig,ax=plt.subplots(figsize=(9.0,5.6),dpi=200)
-    fig.patch.set_facecolor('white');_settings(ax)
-    ax.set_xlim(.15,9.25);ax.set_ylim(.05,4.50)
-    o1=np.array([2.78,3.2]);o2=np.array([5.60,2.93]);out=np.array([8.5,1.64]);xin=.75
-    ys=np.linspace(3.15,.65,8)
-    n1=[_xy(o1,*divmod(i,4)) for i in range(16)]
-    n2=[_xy(o2,*divmod(i,3)) for i in range(9)]
-    lw=[];cols=[];lines=[]
-    for A,B,a,b in [(coefsA[0],coefsB[0],[(xin,float(v)) for v in ys],n1),
-                    (coefsA[1],coefsB[1],n1,n2),(coefsA[2],coefsB[2],n2,[out])]:
-        d=B-A
-        scale=max(float(np.quantile(abs(d),.95)),1e-7)
-        for i,v in enumerate(a):
-            for j,w in enumerate(b):
-                delta=d[i,j];s=min(abs(delta)/scale,1.25)
-                lines.append([v,w]);cols.append((*to_rgb(RUST if delta>0 else BLUE),.035+.23*s))
-                lw.append(.25+.46*s)
-    ax.add_collection(LineCollection(lines,colors=cols,linewidths=lw,zorder=1))
-    for yy in ys:
-        ax.add_patch(Circle((xin,yy),.082,facecolor='#e3e8eb',edgecolor=INK,lw=.7,zorder=25))
-    vmax=max(float(np.quantile(np.r_[m1,m2],.98)),.03)
-    for org,vals,width,points in [(o1,m1,4,n1),(o2,m2,3,n2)]:
-        for k in sorted(range(vals.size),key=lambda k:sum(divmod(k,width))):
-            r,c=divmod(k,width)
-            color=plt.get_cmap('magma')(.17+.77*min(vals[k]/vmax,1))
-            z=4+.12*r+.07*c
-            _tile(ax,org,r,c,color,level=z)
-            ax.add_patch(Circle(points[k],.025,facecolor='white',edgecolor='none',zorder=24))
-    mean_pred=metrics['aligned_metrics_test']['mean_abs_prediction_difference']
-    ax.add_patch(Circle(out,.16,facecolor='#f3ad62',edgecolor=INK,lw=1.2,zorder=25))
-    ax.text(out[0],out[1]-.28,f'{mean_pred:.3f}',ha='center',fontsize=10.3,color=INK)
-    ax.text(.63,4.26,f'{title}  ·  residual differences after symmetry alignment',fontsize=13.0,color=INK)
-    ax.text(8.50,2.01,'mean |Δp|',ha='center',fontsize=9,color=SUB)
-    ax.text(.67,.16,'Tile color: RMS activation discrepancy on held-out observations    ·    edge hue: sign of Δweight',fontsize=8.8,color=SUB)
-    cax=fig.add_axes([.65,.14,.21,.018]);sm=plt.cm.ScalarMappable(norm=Normalize(0,vmax),cmap='magma')
-    cb=fig.colorbar(sm,cax=cax,orientation='horizontal');cb.ax.tick_params(labelsize=7);cb.set_label('RMS activation discrepancy',fontsize=7)
-    _export(fig,Path(directory)/'residual_atlas')
+    points, corners = _comparison_layout(modelA, alignedB)
+    x = np.asarray(x, dtype=float).reshape(1, -1)
+    first = activations(*_tanh_parameters(modelA), x)
+    second = activations(alignedB.coefs, alignedB.intercepts, x)
+    scales = _weight_scales(modelA.coefs_, alignedB.coefs)
+    cmap = colormaps["RdBu_r"]
+    norm = Normalize(-1, 1)
+    fig, axes = plt.subplots(2, 1, figsize=(8.4, 6.35), layout="constrained")
+    inputs = cmap(norm(np.tanh(x[0] / 2)))
+    for i, (ax, params, result) in enumerate(
+        zip(axes, (modelA.coefs_, alignedB.coefs), (first, second))
+    ):
+        layers, _, prob = result
+        rings = np.argsort(np.abs(layers[-1][0] * params[-1][:, 0]), kind="stable")[-3:]
+        tag = ("Reference fit", "Aligned independent fit")[i]
+        key = ("test_auc_A", "test_auc_B")[i]
+        if metrics is not None and key in metrics:
+            tag += f"  ·  held-out AUC {metrics[key]:.3f}"
+        ax.set_title(tag, loc="left", color=INK, fontsize=11, pad=0)
+        _draw_network(
+            ax,
+            points,
+            corners,
+            params,
+            scales,
+            [layer[0] for layer in layers[1:]],
+            norm,
+            cmap,
+            inputs,
+            f"P({label}) = {prob[0]:.3f}",
+            rings,
+        )
+    fig.suptitle(title, color=INK, fontsize=14)
+    fig.supxlabel("Edges show fitted weights · rust positive, blue negative", color=INK, fontsize=8)
+    add_colorbar(
+        fig, axes[-1], norm, cmap, "Hidden tanh activation · same scale for both fits", [-1, 0, 1]
+    )
+    if directory is not None:
+        save_figure(fig, Path(directory) / "independent_networks_aligned")
+    return fig, axes
 
 
-def plot_alignment_diagnostic(modelA,modelB,alignedB,X_align,X_test,y_test,title,metrics,directory):
-    from sklearn.metrics import roc_auc_score
-    before=activations(modelB.coefs_,modelB.intercepts_,X_test)[-1]
-    after=activations(alignedB.coefs,alignedB.intercepts,X_test)[-1]
-    ppA=activations(modelA.coefs_,modelA.intercepts_,X_test)[-1]
-    fig,axs=plt.subplots(1,2,figsize=(8.8,3.6),dpi=200)
-    for ax in axs:
-        ax.spines[['right','top']].set_visible(False);ax.tick_params(labelsize=9)
-    ax=axs[0]
-    left=np.arange(2)
-    ax.plot(left,np.array(metrics['raw_mean_corr_train']),'o--',lw=1.3,markersize=7,color='#bd6549',label='raw neuron order')
-    ax.plot(left,np.array(metrics['aligned_mean_corr_train']),'o-',lw=1.7,markersize=7,color='#377fa8',label='symmetry aligned')
-    ax.set_xticks(left,['Hidden 1','Hidden 2']);ax.set_ylim(-.3,1.05)
-    ax.set_ylabel('Matched neuron activation correlation',fontsize=9)
-    ax.legend(frameon=False,fontsize=8,loc='lower left')
-    ax=axs[1]
-    for label,mask,color in [('class 0',y_test==0,'#427fad'),('class 1',y_test==1,'#dc845d')]:
-        ax.scatter(ppA[mask],before[mask],s=27,alpha=.74,color=color,edgecolors='white',linewidths=.45,label=label)
-    ax.plot([0,1],[0,1],color='#a8b6be',lw=.9,ls='--')
-    ax.set_xlim(-.04,1.04);ax.set_ylim(-.04,1.04)
-    ax.set_xlabel('Fit A predicted probability',fontsize=9)
-    ax.set_ylabel('Fit B predicted probability',fontsize=9)
-    ax.legend(frameon=False,fontsize=8)
-    fig.subplots_adjust(left=.08,right=.98,bottom=.19,top=.84,wspace=.33)
-    fig.text(.09,.94,f'{title}: empirical matching vs predictive agreement',fontsize=12.5,color=INK,weight='medium')
-    fig.text(.09,.04,'Neuron matching is learned from training inputs; independent model predictions are not made identical.',fontsize=8.1,color=SUB)
-    assert np.max(np.abs(before-after)) < 1e-11
-    _export(fig,Path(directory)/'matching_diagnostic')
+def plot_residual_atlas(
+    modelA, alignedB, X_holdout, title="Residual after alignment", metrics=None, directory=None
+):
+    """Show held-out RMS activation discrepancy in the shared neuron slots.
+
+    Edge signs and widths represent aligned weight differences B - A, with
+    scaling within each layer. The output summarizes mean absolute probability
+    disagreement on the supplied observations. Directory optionally exports.
+    """
+    points, corners = _comparison_layout(modelA, alignedB)
+    first = activations(*_tanh_parameters(modelA), X_holdout)
+    second = activations(alignedB.coefs, alignedB.intercepts, X_holdout)
+    hidden = [np.sqrt(np.mean((a - b) ** 2, axis=0)) for a, b in zip(first[0][1:], second[0][1:])]
+    matrices = [b - a for a, b in zip(modelA.coefs_, alignedB.coefs)]
+    mean_difference = np.mean(np.abs(first[-1] - second[-1]))
+    norm = Normalize(0, max(0.05, max(v.max() for v in hidden)))
+    cmap = colormaps["magma"]
+    fig, ax = plt.subplots(figsize=(8.1, 3.9), layout="constrained")
+    ax.set_title(title, loc="left", color=INK, fontsize=12)
+    _draw_network(
+        ax,
+        points,
+        corners,
+        matrices,
+        _weight_scales(matrices),
+        hidden,
+        norm,
+        cmap,
+        ["#dce5ed"] * len(points[0]),
+        f"Mean |Δp| = {mean_difference:.3f}",
+    )
+    add_colorbar(fig, ax, norm, cmap, "RMS hidden activation discrepancy (held out)", None)
+    fig.supxlabel("Edges show B − A weights · rust positive, blue negative", color=INK, fontsize=8)
+    if directory is not None:
+        save_figure(fig, Path(directory) / "residual_atlas")
+    return fig, ax
+
+
+def plot_alignment_diagnostic(
+    modelA,
+    modelB,
+    alignedB,
+    X_align,
+    X_test,
+    y_test,
+    title="Activation matching and predictive agreement",
+    metrics=None,
+    directory=None,
+):
+    """Separate alignment-sample correlations from held-out prediction agreement."""
+    _comparison_layout(modelA, alignedB)
+    params_a, params_b = _tanh_parameters(modelA), _tanh_parameters(modelB)
+    if [w.shape for w in params_a[0]] != [w.shape for w in params_b[0]]:
+        raise ValueError("Both fitted networks must have the same architecture")
+    a = activations(*params_a, X_align)[0][1:]
+    b = activations(*params_b, X_align)[0][1:]
+    aligned = activations(alignedB.coefs, alignedB.intercepts, X_align)[0][1:]
+    pred_a = activations(*params_a, X_test)[-1]
+    before = activations(*params_b, X_test)[-1]
+    after = activations(alignedB.coefs, alignedB.intercepts, X_test)[-1]
+    if not np.allclose(before, after, rtol=0, atol=1e-11):
+        raise ValueError("alignedB does not preserve the candidate predictions on X_test")
+    y = np.asarray(y_test)
+    if y.shape != pred_a.shape or not np.isin(y, [0, 1]).all():
+        raise ValueError("y_test must contain one binary 0/1 label per held-out prediction")
+    fig, axes = plt.subplots(1, 2, figsize=(8.6, 3.65), layout="constrained")
+    left, right = axes
+    hidden = np.arange(1, len(a) + 1)
+    left.plot(
+        hidden,
+        [_paired_corr(u, v) for u, v in zip(a, b)],
+        "o--",
+        color=RUST,
+        label="Original order",
+    )
+    left.plot(
+        hidden, [_paired_corr(u, v) for u, v in zip(a, aligned)], "s-", color=BLUE, label="Aligned"
+    )
+    left.set(
+        xticks=hidden,
+        ylim=(-1.05, 1.05),
+        xlabel="Hidden layer",
+        ylabel="Mean activation correlation",
+    )
+    left.legend(frameon=False, fontsize=8)
+    right.plot([0, 1], [0, 1], color="#93a1ae", lw=0.9, ls="--")
+    for value, marker, color in ((0, "o", BLUE), (1, "^", RUST)):
+        mask = y == value
+        right.scatter(
+            pred_a[mask],
+            before[mask],
+            marker=marker,
+            s=22,
+            alpha=0.72,
+            color=color,
+            label=f"Class {value}",
+        )
+    right.set(
+        xlim=(-0.03, 1.03),
+        ylim=(-0.03, 1.03),
+        aspect="equal",
+        xlabel="Reference probability",
+        ylabel="Candidate probability",
+    )
+    right.legend(frameon=False, fontsize=8)
+    for ax in axes:
+        ax.spines[["right", "top"]].set_visible(False)
+    fig.suptitle(title, color=INK, fontsize=13)
+    if directory is not None:
+        save_figure(fig, Path(directory) / "matching_diagnostic")
+    return fig, axes

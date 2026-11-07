@@ -1,29 +1,76 @@
-"""ModelAtlas research software: fitted-model structure and inferential diagnostics."""
-from .som import SOMMap, train_som, som_from_minisom
-from .render import plot_som, plot_metric
-from .regression import plot_coefficients, plot_predictions
-from .network import plot_mlp
-from .photoz import PhotoZCells, PhotoZBounds, sharp_tail_bounds
-from .photoz_plot import plot_photoz_map, plot_cell_plane, plot_photoz_diagnostics
-from .architecture import plot_som_architecture, plot_photoz_architecture
+"""Vector-native scientific visualizations of fitted models."""
+
+from ._version import __version__
+from .adaptive import GTMModel, PrototypeGraph, growing_neural_gas, partition_tail_bounds, train_gtm
+from .adaptive_plot import (
+    PrototypeLayout,
+    fit_prototype_layout,
+    plot_graph_atlas,
+    plot_gtm,
+    plot_prototype_graph,
+)
 from .api import visualize
-__all__=["SOMMap","train_som","som_from_minisom","plot_som","plot_metric",
-         "plot_coefficients","plot_predictions","plot_mlp","visualize",
-         "PhotoZCells","PhotoZBounds","sharp_tail_bounds","plot_photoz_map","plot_cell_plane","plot_photoz_diagnostics","plot_som_architecture","plot_photoz_architecture"]
-__version__="0.5.0"
+from .architecture import plot_photoz_architecture, plot_som_architecture
+from .explanation import PathExplanation, activation_signatures, explain_mlp
+from .explanation_plot import explanation_layout, plot_explanation_atlas
+from .export import save_figure
+from .geometry import ObliqueProjection, ProjectionDiagnostics, projection_diagnostics
+from .lattice import SOMLattice
+from .network import plot_mlp
+from .photoz import PhotoZBounds, PhotoZCells, sharp_tail_bounds
+from .photoz_plot import plot_cell_plane, plot_identification_sensitivity, plot_photoz_diagnostics, plot_photoz_map
+from .regression import plot_coefficients, plot_predictions
+from .render import plot_metric, plot_som
+from .som import SOMMap, fit_som, som_from_minisom, train_som
+from .symmetry import Alignment, match_tanh_mlp, representational_metrics, transform_signed_permutation
+from .symmetry_plot import plot_alignment_diagnostic, plot_independent_pair, plot_residual_atlas
 
-# Optional XAI extras: import separately when scipy is unavailable.
-from .explanation import PathExplanation, explain_mlp, activation_signatures
-from .explanation_plot import plot_explanation_atlas
-
-# Adaptive photometric prototype graphs (research-preview baseline).
-from .adaptive import PrototypeGraph, GTMModel, growing_neural_gas, train_gtm, partition_tail_bounds
-from .adaptive_plot import plot_graph_atlas
-__all__.extend(["PrototypeGraph", "GTMModel", "growing_neural_gas", "train_gtm", "partition_tail_bounds", "plot_graph_atlas"])
-
-# Symmetry-aware matching for tanh binary MLPs; scipy is required.
-from .symmetry import Alignment, match_tanh_mlp, transform_signed_permutation, representational_metrics
-from .symmetry_plot import plot_independent_pair, plot_residual_atlas, plot_alignment_diagnostic
-__all__.extend(["Alignment", "match_tanh_mlp", "transform_signed_permutation",
-                "representational_metrics", "plot_independent_pair", "plot_residual_atlas",
-                "plot_alignment_diagnostic"])
+__all__ = [
+    "Alignment",
+    "GTMModel",
+    "ObliqueProjection",
+    "PathExplanation",
+    "PhotoZBounds",
+    "PhotoZCells",
+    "ProjectionDiagnostics",
+    "PrototypeGraph",
+    "PrototypeLayout",
+    "SOMLattice",
+    "SOMMap",
+    "__version__",
+    "activation_signatures",
+    "explain_mlp",
+    "explanation_layout",
+    "fit_prototype_layout",
+    "fit_som",
+    "growing_neural_gas",
+    "match_tanh_mlp",
+    "partition_tail_bounds",
+    "plot_alignment_diagnostic",
+    "plot_cell_plane",
+    "plot_coefficients",
+    "plot_explanation_atlas",
+    "plot_graph_atlas",
+    "plot_gtm",
+    "plot_identification_sensitivity",
+    "plot_independent_pair",
+    "plot_metric",
+    "plot_mlp",
+    "plot_photoz_architecture",
+    "plot_photoz_diagnostics",
+    "plot_photoz_map",
+    "plot_predictions",
+    "plot_prototype_graph",
+    "plot_residual_atlas",
+    "plot_som",
+    "plot_som_architecture",
+    "projection_diagnostics",
+    "representational_metrics",
+    "save_figure",
+    "sharp_tail_bounds",
+    "som_from_minisom",
+    "train_gtm",
+    "train_som",
+    "transform_signed_permutation",
+    "visualize",
+]

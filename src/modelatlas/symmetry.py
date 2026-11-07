@@ -34,7 +34,8 @@ def _validate(coefs, intercepts):
     if len(coefs) < 2 or len(coefs) != len(intercepts):
         raise ValueError('At least one hidden layer and matching intercepts are required')
     for i, (w, b) in enumerate(zip(coefs, intercepts)):
-        if w.ndim != 2 or b.ndim != 1 or w.shape[1] != b.size:
+        if (w.ndim != 2 or min(w.shape) < 1 or b.shape != (w.shape[1],)
+            or not np.isfinite(w).all() or not np.isfinite(b).all()):
             raise ValueError(f'Invalid layer shapes at index {i}')
         if i and coefs[i-1].shape[1] != w.shape[0]:
             raise ValueError('Incompatible adjacent layers')
@@ -52,8 +53,8 @@ def activations(coefs, intercepts, X):
     """
     coefs, intercepts = _validate(coefs, intercepts)
     X = np.asarray(X, dtype=float)
-    if X.ndim != 2 or X.shape[1] != coefs[0].shape[0]:
-        raise ValueError('X has the wrong number of features')
+    if X.ndim != 2 or not len(X) or X.shape[1] != coefs[0].shape[0] or not np.isfinite(X).all():
+        raise ValueError('X must be finite, nonempty, and have the fitted number of features')
     layers = [X]
     for w, b in zip(coefs[:-1], intercepts[:-1]):
         layers.append(np.tanh(layers[-1] @ w + b))
@@ -76,9 +77,9 @@ def transform_signed_permutation(coefs, intercepts, permutations, signs):
     b = [x.copy() for x in intercepts]
     for layer, (perm, sign) in enumerate(zip(permutations, signs)):
         n = W[layer].shape[1]
-        perm = np.asarray(perm, dtype=int)
+        perm = np.asarray(perm)
         sign = np.asarray(sign, dtype=float)
-        if (perm.shape != (n,) or sorted(perm.tolist()) != list(range(n))
+        if (perm.shape != (n,) or perm.dtype.kind not in "iu" or sorted(perm.tolist()) != list(range(n))
             or sign.shape != (n,) or not np.all(np.isin(sign, [-1,1]))):
             raise ValueError('Permutation and signs must match hidden layer width')
         W[layer] = W[layer][:,perm] * sign[None,:]
@@ -95,19 +96,27 @@ def _paired_corr(A,B):
     return float(np.mean(c))
 
 
+def _tanh_parameters(model):
+    if isinstance(model, tuple) and len(model) == 2:
+        return _validate(model[0], model[1])
+    if getattr(model, "activation", None) != "tanh" or getattr(model, "out_activation_", None) != "logistic":
+        raise ValueError("Only fitted binary tanh MLPClassifier is supported")
+    return _validate(model.coefs_, model.intercepts_)
+
+
 def match_tanh_mlp(reference, candidate, X_align, X_check=None):
     """Match independently trained MLPs by optimal signed activation pairs.
 
     Parameters
     ----------
-    reference, candidate: sklearn MLPClassifier or (coefs_, intercepts_) pair
-        Identical hidden-layer widths and tanh/logistic architecture. They
-        need not have identical predictions.
-    X_align: array (n_observations, n_features)
-        **Training or calibration data only**; do not use held-out test labels
-        or held-out test inputs to learn a correspondence.
-    X_check: array, optional
-        Additional inputs for numerical function-invariance testing.
+    reference, candidate
+        Fitted binary tanh MLPClassifiers, or pairs of weight and bias
+        arrays representing the same architecture.
+    X_align
+        Fitted-space inputs used to learn the matching. Use training or
+        calibration data so held-out examples can assess the comparison.
+    X_check
+        Additional fitted-space inputs for numerical invariance testing.
 
     Notes
     -----
@@ -117,19 +126,17 @@ def match_tanh_mlp(reference, candidate, X_align, X_check=None):
     It does not establish functional equivalence across independently trained
     models, nor does it change candidate predictions.
     """
-    def unpack(m):
-        if isinstance(m, tuple) and len(m)==2:
-            return _validate(m[0],m[1])
-        if getattr(m, 'activation',None) != 'tanh' or getattr(m,'out_activation_',None) != 'logistic':
-            raise ValueError('Only fitted binary tanh MLPClassifier is supported')
-        return _validate(m.coefs_,m.intercepts_)
-    refW,refb=unpack(reference)
-    canW,canb=unpack(candidate)
+    if hasattr(reference, "classes_") and hasattr(candidate, "classes_") and not np.array_equal(
+        reference.classes_, candidate.classes_
+    ):
+        raise ValueError("Reference and candidate must use the same ordered class labels")
+    refW,refb= _tanh_parameters(reference)
+    canW,canb= _tanh_parameters(candidate)
     if len(refW)!=len(canW) or [w.shape for w in refW] != [w.shape for w in canW]:
         raise ValueError('Reference and candidate must have matching architecture')
     X_align=np.asarray(X_align,dtype=float)
     ref_act,_,_=activations(refW,refb,X_align)
-    can_act,_,p_before=activations(canW,canb,X_align)
+    can_act,_,_=activations(canW,canb,X_align)
     permutations=[];signs=[]
     for Ra,Ca in zip(ref_act[1:],can_act[1:]):
         plus=np.mean((Ra[:,:,None]-Ca[:,None,:])**2,axis=0)
@@ -143,12 +150,14 @@ def match_tanh_mlp(reference, candidate, X_align, X_check=None):
         permutations.append(perm)
         signs.append(sg)
     W_aligned,b_aligned=transform_signed_permutation(canW,canb,permutations,signs)
-    aligned_act,_,p_after=activations(W_aligned,b_aligned,X_align)
+    aligned_act,_,_=activations(W_aligned,b_aligned,X_align)
     errors=[]
     for X in (X_align,X_check):
         if X is not None:
-            _,_,p0=activations(canW,canb,X)
-            _,_,p1=activations(W_aligned,b_aligned,X)
+            _, logits_before, p0 = activations(canW, canb, X)
+            _, logits_after, p1 = activations(W_aligned, b_aligned, X)
+            if not np.allclose(logits_before, logits_after, rtol=1e-11, atol=1e-11):
+                raise AssertionError("Permutation invariance failed for candidate logits")
             errors.append(np.max(np.abs(p0-p1)))
     max_err=float(max(errors))
     if max_err>1e-11:
@@ -165,7 +174,9 @@ def match_tanh_mlp(reference, candidate, X_align, X_check=None):
 
 def representational_metrics(reference, candidate, X):
     """Compare aligned hidden-unit activation profiles on independent inputs."""
-    a,_,p1=activations(reference.coefs_,reference.intercepts_,X)
+    if [np.shape(w) for w in reference.coefs_] != [w.shape for w in candidate.coefs]:
+        raise ValueError("Reference and aligned candidate must have matching architecture")
+    a,_,p1=activations(*_tanh_parameters(reference), X)
     b,_,p2=activations(candidate.coefs,candidate.intercepts,X)
     return dict(
         mean_abs_activation=[float(np.mean(np.abs(x-y))) for x,y in zip(a[1:],b[1:])],

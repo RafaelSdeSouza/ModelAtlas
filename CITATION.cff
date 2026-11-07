@@ -1,14 +1,12 @@
 cff-version: 1.2.0
-message: >-
-  If you use ModelAtlas, cite the specific archived software release.
-  Contributor credits and any associated paper reference should be
-  reviewed before public release.
-title: 'ModelAtlas: interpretable scientific model visualization'
+message: Cite the exact ModelAtlas software version and commit used for your analysis.
+title: 'ModelAtlas: scientific visualization of fitted models'
 type: software
-version: 0.4.0
+version: 0.6.0.dev0
 authors:
   - family-names: de Souza
     given-names: Rafael S.
+repository-code: https://github.com/RafaelSdeSouza/ModelAtlas
 license: MIT
 keywords:
   - scientific visualization
@@ -16,3 +14,4 @@ keywords:
   - neural networks
   - partial identification
   - astrophysics
+# Release DOI: pending archival after review. Add the assigned DOI here.

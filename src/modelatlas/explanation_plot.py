@@ -47,7 +47,9 @@ def _layout_by_responses(A):
     # SVD of unit signatures approximates pairwise activation correlation.
     centered=traces-traces.mean(axis=0,keepdims=True)
     U,s,_=np.linalg.svd(centered,full_matrices=False)
-    coord=U[:,:2]*s[None,:2] if n>=3 else np.column_stack([np.arange(n),np.zeros(n)])
+    coord = np.zeros((n, 2))
+    rank = min(2, len(s))
+    coord[:, :rank] = U[:, :rank] * s[:rank]
     coord-=coord.mean(axis=0,keepdims=True)
     coord/=np.maximum(coord.std(axis=0,keepdims=True),1e-6)
     grid=np.array([(r,c) for r in range(rows) for c in range(cols)],dtype=float)
@@ -59,21 +61,29 @@ def _layout_by_responses(A):
     return (rows,cols),mapping
 
 
-def plot_explanation_atlas(model, explanation:PathExplanation, *, X_reference,
+def explanation_layout(model, X_reference):
+    """Fit a reusable pair of activation-signature grids on reference inputs."""
+    return tuple(_layout_by_responses(signature) for signature in activation_signatures(model, X_reference))
+
+
+def plot_explanation_atlas(model, explanation: PathExplanation, *, X_reference=None,
                            feature_names=None, ax=None, show_all_edges=True,
-                           highlight=True, grid_layout=None):
+                           highlight=True, grid_layout=None, attribution_scale=None,
+                           edge_scale=None):
     """Render a two-hidden-layer binary MLP explanation as an oblique vector plot.
 
     - Node fills: signed incoming edge conductance for each hidden unit.
     - Edge hue and opacity: signed edge conductance and its absolute magnitude.
     - Input nodes: signed Integrated Gradients for standardized input features.
-    - Layout: neurons with correlated activation traces are positioned nearby.
+    - Layout: an approximate grid fitted to centered activation signatures.
     - White-ringed neurons: chosen trace through the strongest final incoming edge.
 
     This is a rendering of an *attribution*, not an intervention or causal path.
     All values refer to the output logit, relative to the specified baseline.
     Only 2 hidden layers are presently rendered; the explanation engine supports
-    more layers.
+    more layers. Reuse grid_layout, attribution_scale and edge_scale to
+    keep positions and appearance fixed across observations. Scales are in
+    logit units and control saturation, with separate scales for nodes and edges.
     """
     if len(explanation.edge_contributions)!=3:
         raise ValueError('The oblique renderer currently supports exactly two hidden layers.')
@@ -85,15 +95,25 @@ def plot_explanation_atlas(model, explanation:PathExplanation, *, X_reference,
         raise ValueError('feature_names must match n_features.')
     if n_input>18 or n_h1>36 or n_h2>25:
         raise ValueError('For compact 2.5D rendering, use <=18 inputs and <=36/25 hidden neurons.')
-    sigs=activation_signatures(model,X_reference)
-    if grid_layout is None:
-        grids=[_layout_by_responses(sig) for sig in sigs]
-    else:
-        grids=grid_layout
+    if grid_layout is None and X_reference is None:
+        raise ValueError("provide X_reference or a fitted grid_layout")
+    grids = explanation_layout(model, X_reference) if grid_layout is None else grid_layout
+    if len(grids) != 2:
+        raise ValueError("grid_layout requires two hidden layers")
+    for ((rows, cols), mapping), width in zip(grids, (n_h1, n_h2)):
+        if (
+            set(mapping) != set(range(width)) or len(set(mapping.values())) != width
+            or any(not (0 <= r < rows and 0 <= c < cols) for r, c in mapping.values())
+        ):
+            raise ValueError("grid_layout must assign each hidden unit to a distinct valid cell")
     layers=explanation.node_contributions
     max_val=np.max(np.abs(np.concatenate([v.ravel() for v in layers[:-1]])))
-    scale=max(float(max_val),.12)
-    edge_scale=max(float(np.percentile(np.abs(np.concatenate([e.ravel() for e in explanation.edge_contributions])),96)),.05)
+    scale = max(float(max_val), 0.12) if attribution_scale is None else attribution_scale
+    if edge_scale is None:
+        edges = np.concatenate([e.ravel() for e in explanation.edge_contributions])
+        edge_scale = max(float(np.percentile(np.abs(edges), 96)), 0.05)
+    if not np.isfinite([scale, edge_scale]).all() or min(scale, edge_scale) <= 0:
+        raise ValueError("attribution_scale and edge_scale must be finite and positive")
     if ax is None:
         fig,ax=plt.subplots(figsize=(7.2,6.6),dpi=200)
     else:
@@ -172,9 +192,9 @@ def plot_explanation_atlas(model, explanation:PathExplanation, *, X_reference,
         val=float(layers[0][i]);p=np.array([input_x,y]);c=_signed_color(val,scale)
         ax.add_patch(Circle(p,.016,facecolor=c,edgecolor=INK,linewidth=.65,zorder=30))
         ax.text(input_x-.027,y,str(feature_names[i]),fontsize=9.0,ha='right',va='center',color=INK)
-    outcolor=_signed_color(explanation.logit_change,max(abs(explanation.logit_change),.1))
+    outcolor=_signed_color(explanation.logit_change,scale)
     ax.add_patch(Circle(out,.029,facecolor=outcolor,edgecolor=INK,lw=1.2,zorder=40))
-    ax.text(out[0],out[1]+.051,'P(Y=1)',fontsize=9.3,color=INK,ha='center')
+    ax.text(out[0],out[1]+.051,'P(positive class)',fontsize=9.3,color=INK,ha='center')
     ax.text(out[0],out[1]-.054,f'{explanation.probability:.3f}',fontsize=9.2,color=INK,ha='center')
     ax.text(.153,.955,f'{n_input} inputs',fontsize=9.5,color=INK,ha='center')
     ax.text(.45,.961,f'Hidden · {n_h1}',fontsize=9.5,color=INK,ha='center')
@@ -185,6 +205,6 @@ def plot_explanation_atlas(model, explanation:PathExplanation, *, X_reference,
     ax.text(.265,.108,'decreases logit',fontsize=7.7,va='center',color='#586E81')
     ax.plot([.455,.474],[.108,.108],lw=3.3,color=POS,solid_capstyle='round')
     ax.text(.484,.108,'increases logit',fontsize=7.7,va='center',color='#586E81')
-    ax.text(.53,.071,'edge / tile color: integrated contribution  ·  proximity: activation similarity',
+    ax.text(.53,.071,'Edge and tile colors encode contributions to Δlogit',
             fontsize=7.6,color='#65788B',ha='center')
     return fig,ax

@@ -1,163 +1,199 @@
-"""Data-driven oblique 3D-looking lattice maps for photo-z cell diagnostics.
+"""Plot observed spectroscopy and assumption-dependent photo-z bounds."""
 
-Only map topology and scalar cell data are encoded. The third dimension is a
-fixed extrusion for visual legibility; it is NOT latent physical dimension.
-"""
-from __future__ import annotations
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import colormaps
-from matplotlib.colors import Normalize, to_rgb
-from matplotlib.patches import Polygon, Circle
-from .photoz import PhotoZBounds
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.patches import Patch
+from numpy.typing import ArrayLike, NDArray
+
+from ._lattice_plot import INK, add_colorbar, color_scale, draw_lattice
+from .geometry import ObliqueProjection
+from .lattice import Cell, SOMLattice, Topology
+from .photoz import PhotoZBounds, PhotoZCells
 
 _METRICS = {
-  'target_occupancy': ('Target galaxies / cell', 'viridis'),
-  'spectroscopic_coverage': ('Usable z / target', 'cividis'),
-  'attempt_fraction': ('Spectroscopic attempts / target', 'cividis'),
-  'success_given_attempt': ('Usable z / attempts', 'cividis'),
-  'identified_width': ('Width of identified fraction', 'magma'),
-  'population_width_contribution': ('Contribution to population bound width', 'magma'),
-  'lower_bound': ('Lower bound for P(z > z₀)', 'viridis'),
-  'upper_bound': ('Upper bound for P(z > z₀)', 'viridis'),
-  'observed_high_fraction': ('P(z > z₀) among usable z', 'coolwarm'),
+    "target_occupancy": ("Target galaxies per cell", "viridis"),
+    "spectroscopic_coverage": ("Usable spectra / target", "cividis"),
+    "attempt_fraction": ("Spectroscopic attempts / target", "cividis"),
+    "success_given_attempt": ("Usable spectra / attempts", "cividis"),
+    "identified_width": ("Width of identified fraction", "magma"),
+    "population_width_contribution": ("Contribution to population bound width", "magma"),
+    "lower_bound": ("Lower bound for P(z > z₀)", "viridis"),
+    "upper_bound": ("Upper bound for P(z > z₀)", "viridis"),
+    "observed_high_fraction": ("P(z > z₀) among usable spectra", "viridis"),
 }
+_FRACTION_METRICS = _METRICS.keys() - {"target_occupancy", "population_width_contribution"}
 
 
-def plot_cell_plane(values, *, label='', cmap='viridis', value_range=None,
-                    depth=.48, elevation='constant', figsize=(4.15,4.20), highlight=None,
-                    hatch_mask=None, hatch_label=None, label_ticks=None, ax=None):
-    """Compact, orthographic vector rendering of any 2D SOM scalar diagnostic.
+def plot_cell_plane(
+    values: ArrayLike,
+    *,
+    label: str = "",
+    cmap: str = "viridis",
+    value_range: tuple[float, float] | None = None,
+    depth: float = 0.48,
+    elevation: str = "constant",
+    figsize: tuple[float, float] = (4.6, 3.9),
+    highlight: Cell | None = None,
+    hatch_mask: ArrayLike | None = None,
+    hatch_label: str | None = None,
+    label_ticks: ArrayLike | None = None,
+    ax: Axes | None = None,
+    topology: Topology = "rectangular",
+    projection: ObliqueProjection | None = None,
+) -> tuple[Figure, Axes]:
+    """Plot a cell scalar on a rectangular or hexagonal oblique lattice.
 
-    (fig, ax), usable in PDF/SVG/PNG via fig.savefig. The dimension extruded
-    from a two-dimensional lattice is decorative, not a data dimension.
-
-    values: finite floats or nan (unpopulated); (row, col) lattice.
-    hatch_mask: boolean 2D mask, e.g. nonempty cells with zero usable z.
-    value_range: explicit [min,max] or None for data min/max.
+    Gray cells represent missing scalars. In constant mode, thickness is a
+    graphical cue. In metric mode, cap height above the reference plane equals
+    the color-normalized metric in lattice units (clipped to [0, 1]).
     """
-    value=np.asarray(values,float)
-    if value.ndim!=2 or min(value.shape)<2 or np.isinf(value).any():
-        raise ValueError('values must be a 2D lattice with finite values or NaNs')
-    if not np.any(np.isfinite(value)):
-        raise ValueError('at least one populated cell with finite value is required')
-    rows,cols=value.shape
-    if hatch_mask is not None:
-        h=np.asarray(hatch_mask,bool)
-        if h.shape!=value.shape:raise ValueError('hatch_mask dimension mismatch')
-    else:h=np.zeros_like(value,dtype=bool)
-    if not (.10<=depth<=.85):raise ValueError('depth must be between 0.10 and 0.85')
-    if elevation not in ('constant','metric'):
-        raise ValueError('elevation must be constant or metric')
-    if highlight is not None and not (0<=highlight[0]<rows and 0<=highlight[1]<cols):
-        raise ValueError('highlight must be a (row,col) position within SOM')
-    if value_range is None:
-        low=float(np.nanmin(value));high=float(np.nanmax(value))
-        if high<=low:high=low+1
-    else:
-        low,high=map(float,value_range)
-        if not np.isfinite([low,high]).all() or low>=high:
-            raise ValueError('value_range must be finite increasing pair')
-    norm=Normalize(low,high)
-    colormap=colormaps[cmap]
+    values = np.asarray(values, dtype=float)
+    if values.ndim != 2:
+        raise ValueError("values must be a 2D lattice")
+    lattice = SOMLattice((values.shape[0], values.shape[1]), topology)
+    hatch = None if hatch_mask is None else np.asarray(hatch_mask, dtype=bool)
+    if hatch is not None and hatch.shape != values.shape:
+        raise ValueError("hatch_mask must match values")
+    if not 0.10 <= depth <= 0.85:
+        raise ValueError("depth must be between 0.10 and 0.85")
+    if elevation not in ("constant", "metric"):
+        raise ValueError("elevation must be 'constant' or 'metric'")
+    if highlight is not None:
+        highlight = tuple(highlight)
+        lattice.hop_distances(highlight)
+    norm, ticks = color_scale(values, value_range)
+    color_map = colormaps[cmap]
+    lift: ArrayLike = 0.0
+    if elevation == "metric":
+        lift = np.where(np.isfinite(values), norm(values), 0.0)
     if ax is None:
-        fig,ax=plt.subplots(figsize=figsize,dpi=240)
-        fig.subplots_adjust(left=0,right=1,top=1,bottom=0)
+        fig, ax = plt.subplots(figsize=figsize, layout="constrained")
     else:
-        fig=ax.figure
-    fig.patch.set_facecolor('white');ax.set_facecolor('white')
-    ax.set_axis_off();ax.set_aspect('equal');ax.set_xlim(0,1.56);ax.set_ylim(0,1.38)
-    O=np.array([.205,1.21])
-    vr=np.array([.050,-.076])*8/(rows-1)
-    vc=np.array([.087,-.031])*8/(cols-1)
-    down=np.array([.026,.348])*depth
-    s=.467
-    def p(r,c):return O + r*vr + c*vc
-    outline=np.array([p(-s,-s),p(-s,cols-1+s),p(rows-1+s,cols-1+s),p(rows-1+s,-s)])
-    ax.add_patch(Polygon(outline+np.array([.018,-.038])-down,
-                         facecolor='#283650',alpha=.065,edgecolor='none',zorder=-2))
-    ordering=sorted(((i,j) for i in range(rows) for j in range(cols)),key=lambda ij:(ij[0]+ij[1],ij[0]))
-    for i,j in ordering:
-        middle=p(i,j)
-        q=np.array([p(i-s,j-s),p(i-s,j+s),p(i+s,j+s),p(i+s,j-s)])
-        v=value[i,j]
-        if elevation=='metric':
-            # Semantically meaningful relief: vertical lift encodes the *same*
-            # scalar cell metric as hue, not an unmeasured 3rd latent axis.
-            scaled=np.clip(norm(v),0,1) if np.isfinite(v) else 0.
-            lift=np.array([.017,.15])*scaled
-            top=q+lift
-        else:
-            top=q
-        below=q-down
-        if np.isfinite(v):base=np.asarray(colormap(norm(v))[:3])
-        else:base=np.array([.91,.92,.94])
-        def shade(mult): return tuple(np.clip(base*mult,0,1))
-        zorder=10+.015*(i+j)
-        ax.add_patch(Polygon([top[1],top[2],below[2],below[1]],
-            facecolor=shade(.58),edgecolor='#2D3646',linewidth=.38,zorder=zorder))
-        ax.add_patch(Polygon([top[2],top[3],below[3],below[2]],
-            facecolor=shade(.76),edgecolor='#2D3646',linewidth=.38,zorder=zorder+.001))
-        ax.add_patch(Polygon(top,facecolor=base,edgecolor='#243144',
-                             linewidth=.37,zorder=zorder+.002,joinstyle='miter'))
-        if h[i,j]:
-            ax.add_patch(Polygon(top,facecolor='none',edgecolor='#243144',
-                                 hatch='////',linewidth=.23,zorder=zorder+.003))
-        if highlight is not None and (i,j)==tuple(highlight):
-            # A compact marker, not a selected polygon that competes with the
-            # neuron geometry. Identical location can be tracked across maps.
-            ax.add_patch(Circle(middle + (lift if elevation=='metric' else 0),.020,facecolor='white',edgecolor='#26354C',
-                                linewidth=1.45,zorder=41))
-            ax.add_patch(Circle(middle + (lift if elevation=='metric' else 0),.006,facecolor='#26354C',edgecolor='none',zorder=42))
-    # Colorbar lives inside the plot object; no overlaid slide header or footer.
-    xa,xb=.34,1.28; yb=.115; hh=.018
-    for k in range(160):
-        aa=k/160;bb=(k+1)/160
-        ax.add_patch(Polygon([(xa+(xb-xa)*aa,yb),(xa+(xb-xa)*bb,yb),
-                              (xa+(xb-xa)*bb,yb+hh),(xa+(xb-xa)*aa,yb+hh)],
-                 facecolor=colormap((aa+bb)/2),edgecolor='none',zorder=70))
-    ax.text((xa+xb)/2,.159,label,fontsize=9.5,ha='center',va='bottom',color='#374255')
-    fmt=(lambda v: f'{v:,.0f}' if abs(v)>=10 or np.isclose(v,0) else f'{v:.2f}')
-    ax.text(xa,.103,fmt(low),ha='left',va='top',fontsize=8.4,color='#516078')
-    ax.text(xb,.103,fmt(high),ha='right',va='top',fontsize=8.4,color='#516078')
-    if hatch_label and np.any(h) and elevation=='constant':
-        ax.text((xa+xb)/2,.038,hatch_label,ha='center',va='bottom',
-                color='#677287',fontsize=7.8)
-    return fig,ax
+        fig = ax.figure
+    draw_lattice(
+        ax,
+        lattice,
+        values,
+        norm=norm,
+        cmap=color_map,
+        projection=projection or ObliqueProjection(),
+        depth=depth,
+        lift=lift,
+        highlight=highlight,
+        hatch=hatch,
+    )
+    add_colorbar(fig, ax, norm, color_map, label, ticks if label_ticks is None else label_ticks)
+    if hatch_label and hatch is not None and np.any(hatch):
+        ax.legend(
+            handles=[Patch(fc="white", ec=INK, hatch="///", label=hatch_label)],
+            loc="upper center",
+            fontsize=7.5,
+            frameon=False,
+        )
+    return fig, ax
 
 
-def plot_photoz_map(bounds:PhotoZBounds, metric='identified_width', **kwargs):
-    """Render a photo-z partial-identification diagnostic on the SOM lattice."""
-    if not isinstance(bounds,PhotoZBounds): raise TypeError('expected PhotoZBounds')
-    if metric not in _METRICS: raise ValueError('unsupported photo-z metric: '+metric)
-    label,cmap=_METRICS[metric]
-    defaults={'cmap':cmap,'label':label}
-    if metric in ('identified_width','lower_bound','upper_bound',
-                  'spectroscopic_coverage','attempt_fraction','success_given_attempt',
-                  'observed_high_fraction'):
-        defaults['value_range']=(0.,1.)
-    if metric in ('identified_width','lower_bound','upper_bound',
-                  'population_width_contribution'):
-        defaults['hatch_mask']=bounds.unidentified
-        defaults['hatch_label']='Hatched: no usable spectroscopic z'
+def plot_photoz_map(
+    bounds: PhotoZBounds, metric: str = "identified_width", **kwargs
+) -> tuple[Figure, Axes]:
+    """Plot one cellwise photo-z diagnostic, retaining the fitted topology."""
+    if not isinstance(bounds, PhotoZBounds):
+        raise TypeError("expected PhotoZBounds")
+    if metric not in _METRICS:
+        raise ValueError(f"unsupported photo-z metric: {metric}")
+    label, cmap = _METRICS[metric]
+    defaults = {"cmap": cmap, "label": label}
+    if metric in _FRACTION_METRICS:
+        defaults["value_range"] = (0.0, 1.0)
+    if metric in (
+        "identified_width",
+        "lower_bound",
+        "upper_bound",
+        "population_width_contribution",
+    ):
+        defaults["hatch_mask"] = bounds.unidentified
+        defaults["hatch_label"] = "No usable spectroscopic redshift"
     defaults.update(kwargs)
-    return plot_cell_plane(bounds.metric(metric),**defaults)
+    return plot_cell_plane(bounds.metric(metric), topology=bounds.topology, **defaults)
 
 
-def plot_photoz_diagnostics(bounds:PhotoZBounds, *,
-    metrics=('target_occupancy','spectroscopic_coverage',
-             'observed_high_fraction','identified_width'),
-    highlight=None, figsize=(8.6,8.6)):
-    """Publication-style square small multiples: one common SOM topology.
+def plot_photoz_diagnostics(
+    bounds: PhotoZBounds,
+    *,
+    metrics: tuple[str, str, str, str] = (
+        "target_occupancy",
+        "spectroscopic_coverage",
+        "observed_high_fraction",
+        "identified_width",
+    ),
+    highlight: Cell | None = None,
+    figsize: tuple[float, float] = (8.4, 7.2),
+) -> tuple[Figure, NDArray]:
+    """Draw four scalar diagnostics on identical SOM positions and camera."""
+    if len(metrics) != 4:
+        raise ValueError("four cell metrics are required")
+    fig, axes = plt.subplots(2, 2, figsize=figsize, layout="constrained")
+    for ax, metric in zip(axes.ravel(), metrics):
+        plot_photoz_map(bounds, metric=metric, highlight=highlight, ax=ax)
+    return fig, axes
 
-    Not a slide: each 3D lattice and legend is an ordinary Matplotlib Axes,
-    vector-native on SVG/PDF export. Explicitly no model-agnostic assumption
-    that the 3D surface represents a measured manifold.
+
+def plot_identification_sensitivity(
+    cells: PhotoZCells,
+    radii: ArrayLike,
+    *,
+    threshold: float = 1.2,
+    ax: Axes | None = None,
+) -> tuple[Figure, Axes]:
+    """Draw population tail-bound endpoints against the assumed W1 radius.
+
+    Each vertical range is a plug-in identified interval conditional on that
+    radius. The shaded region is a sensitivity display without sampling
+    coverage. Lines guide the eye between evaluated radii. The zero-radius
+    result is plotted separately if the reference has an atom at the
+    threshold. Dashed lines show the unrestricted missing-redshift bounds.
     """
-    if len(metrics)!=4:
-        raise ValueError('four cell metrics required for a balanced 2x2 plot')
-    fig,axs=plt.subplots(2,2,figsize=figsize,dpi=210)
-    fig.subplots_adjust(left=.012,right=.988,top=.99,bottom=.01,wspace=.015,hspace=.04)
-    for ax,metric in zip(axs.ravel(),metrics):
-        plot_photoz_map(bounds,metric=metric,highlight=highlight,ax=ax)
-    return fig,axs
+    radii = np.asarray(radii, dtype=float)
+    if (
+        radii.ndim != 1
+        or len(radii) < 2
+        or not np.isfinite(radii).all()
+        or radii[0] < 0
+        or np.any(np.diff(radii) <= 0)
+    ):
+        raise ValueError("radii must contain at least two finite, increasing nonnegative values")
+    lo, hi = np.array([cells.identify(threshold, r).population_interval() for r in radii]).T
+    unrestricted = cells.identify(threshold, None).population_interval()
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6.4, 3.6), layout="constrained")
+    else:
+        fig = ax.figure
+    separate_zero = radii[0] == 0 and np.any(cells.spectroscopic_redshift == threshold)
+    start = int(separate_zero)
+    ax.fill_between(
+        radii[start:], lo[start:], hi[start:], color="#3d7198", alpha=0.16, label="Identified range"
+    )
+    ax.plot(radii[start:], lo[start:], color="#245c83", marker=".", lw=1.5)
+    ax.plot(radii[start:], hi[start:], color="#245c83", marker=".", lw=1.5)
+    if separate_zero:
+        ax.vlines(0, lo[0], hi[0], color="#245c83", lw=1.2)
+        ax.scatter([0, 0], [lo[0], hi[0]], s=14, color="#245c83", zorder=4)
+    for i, endpoint in enumerate(unrestricted):
+        ax.axhline(
+            endpoint,
+            color="#86523d",
+            lw=1,
+            ls="--",
+            label="Unrestricted endpoints" if i == 0 else None,
+        )
+    ax.set(
+        xlabel=r"Assumed Wasserstein-1 radius (redshift units)",
+        ylabel=rf"Target fraction with $z>{threshold:g}$",
+        ylim=(0, 1),
+    )
+    ax.legend(loc="best", frameon=False, fontsize=8)
+    ax.spines[["top", "right"]].set_visible(False)
+    return fig, ax

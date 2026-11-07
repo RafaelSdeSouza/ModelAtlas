@@ -18,6 +18,10 @@ def plot_mlp(model, *, input_labels=None, output_labels=None, max_neurons=20,
     if not hasattr(model,"coefs_"):
         raise TypeError("a fitted sklearn MLP with coefs_ is required")
     ws=[np.asarray(w,float) for w in model.coefs_]
+    if not ws or any(w.ndim != 2 or min(w.shape) < 1 or not np.isfinite(w).all() for w in ws):
+        raise ValueError("coefs_ must contain nonempty, finite weight matrices")
+    if any(a.shape[1] != b.shape[0] for a, b in zip(ws, ws[1:])):
+        raise ValueError("adjacent weight matrices must share their hidden width")
     widths=[ws[0].shape[0]]+[w.shape[1] for w in ws]
     if any(widths[k]>max_neurons for k in range(len(widths))):
         raise ValueError("network too wide; reduce, summarize or increase max_neurons")
@@ -55,4 +59,6 @@ def plot_mlp(model, *, input_labels=None, output_labels=None, max_neurons=20,
                 ax.text(xposk+.026,y,output_labels[j],ha="left",va="center",fontsize=9,color="#35445B")
     ax.text(.61,.035,"blue: positive     rust: negative     stroke: |weight|",
             fontsize=7.6,color="#637187",ha="center")
+    ax.text(.61,-.025,f"Weights below the layer's {100 * trim_quantile:g}th percentile in |weight| are omitted",
+            fontsize=7.0,color="#637187",ha="center")
     return fig,ax

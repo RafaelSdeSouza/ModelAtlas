@@ -15,7 +15,28 @@ the identified interval for theta=P(z>z0|cell) remains [0, 1].
 from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np
+from .lattice import Topology
 from .som import SOMMap
+
+
+def _validate_sensitivity(z0, gamma):
+    if not np.isfinite(z0) or z0 < 0:
+        raise ValueError("z0 must be finite and nonnegative")
+    if gamma is not None and (not np.isfinite(gamma) or gamma < 0):
+        raise ValueError("gamma must be None or a finite nonnegative W1 radius")
+
+
+def _validate_partition(assignments, n_nodes, spectroscopic_z=None):
+    """Validate observed partition data without coercing IDs or missingness."""
+    ids = np.asarray(assignments)
+    if ids.ndim != 1 or not len(ids) or ids.dtype.kind not in "iu":
+        raise ValueError("assignments must be a nonempty 1D integer array")
+    if np.any(ids < 0) or np.any(ids >= n_nodes):
+        raise ValueError("assignments must index fitted prototypes")
+    z = None if spectroscopic_z is None else np.asarray(spectroscopic_z, dtype=float)
+    if z is not None and (z.shape != ids.shape or np.isinf(z).any() or np.any(z < 0)):
+        raise ValueError("spectroscopic redshifts must be nonnegative or NaN, one per assignment")
+    return ids.astype(np.intp, copy=False), z
 
 
 def _movable_mass(costs: np.ndarray, budget: float, n_total: int) -> float:
@@ -25,19 +46,20 @@ def _movable_mass(costs: np.ndarray, budget: float, n_total: int) -> float:
     The optimal plan moves closest-to-threshold source mass first.
     """
     costs=np.sort(np.asarray(costs,float))
-    if not len(costs): return 0.
-    if budget <= 0: return 0.
+    if not len(costs) or budget <= 0:
+        return 0.0
     remaining=float(budget)
     moved=0.
     w=1./n_total
     for c in costs:
-        if c <= 1e-14:
+        if c == 0:
             moved+=w
             continue
         part=min(w, remaining/c)
         moved+=part
         remaining-=part*c
-        if part < w-1e-14: break
+        if part < w:
+            break
     return min(1.,moved)
 
 
@@ -48,18 +70,16 @@ def sharp_tail_bounds(z_observed, z0: float, gamma: float | None):
     reference is the *empirical measure* of successful spectra, treated as
     fixed. gamma=None means no restriction: return (0,1).
 
-    Atoms exactly at the threshold lead to inf/sup that may be approached but
-    not attained; at gamma=0, both extrema equal the empirical tail.
+    For gamma > 0, the strict upper-tail supremum may only be approached.
+    At gamma=0 both endpoints equal the empirical strict tail, including
+    when the empirical measure has an atom at z0.
     """
     z=np.asarray(z_observed,float)
     if z.ndim!=1 or not len(z) or not np.isfinite(z).all() or (z<0).any():
         raise ValueError('z_observed must be nonempty, finite, nonnegative 1D values')
-    if not np.isfinite(z0) or z0<0:
-        raise ValueError('z0 must be finite and nonnegative')
+    _validate_sensitivity(z0, gamma)
     if gamma is None:
         return 0.,1.
-    if not np.isfinite(gamma) or gamma<0:
-        raise ValueError('gamma must be None or a finite nonnegative W1 radius')
     p=float(np.mean(z>z0))
     if gamma==0: return p,p
     # To decrease tail, move above-threshold mass down to the threshold.
@@ -80,6 +100,7 @@ class PhotoZBounds:
     observed_high_fraction: np.ndarray
     lower: np.ndarray
     upper: np.ndarray
+    topology: Topology = "rectangular"
 
     @property
     def coverage(self):
@@ -120,6 +141,10 @@ class PhotoZBounds:
         The ranking omits follow-up success probability, acquisition cost and
         anticipated reduction in Gamma; it is not a decision-theoretic utility.
         """
+        if top < 0:
+            raise ValueError("top must be nonnegative")
+        if top == 0:
+            return []
         a=self.population_width_contribution
         idx=np.argsort(np.nan_to_num(a,nan=-1).ravel())[::-1]
         result=[]
@@ -163,8 +188,9 @@ class PhotoZBounds:
 
     def summary(self):
         a,b=self.population_interval()
+        attempted = self.n_attempted.sum()
         return {'N_target':int(self.n_target.sum()),
-                'N_attempted':int(self.n_attempted.sum()),
+                'N_attempted':int(attempted) if np.isfinite(attempted) else None,
                 'N_usable_spectra':int(self.n_spec.sum()),
                 'N_populated_cells':int(np.count_nonzero(self.n_target)),
                 'N_cells_without_spectra':int(np.count_nonzero(self.unidentified)),
@@ -178,13 +204,18 @@ class PhotoZBounds:
 class PhotoZCells:
     """SOM mapped parent photometry with linked spectral outcomes.
 
-    target_features: (N,d) photometry, in SOM fitted feature coordinates.
-    spectroscopic_redshift: (N,) NaN where redshift unavailable; finite >=0
-       where a *usable* redshift was obtained. No true redshifts of unobserved
-       objects may enter identification computations.
-    attempted: optional (N,) bool, identifies targeted spectroscopy attempts.
-       If absent, assumed to equal usable-spec status, which precludes
-       separate inference about attempt vs success.
+    Parameters
+    ----------
+    som
+        Fitted SOM with matching feature scaling.
+    target_features
+        Target photometry of shape (N, d) in fitted coordinates.
+    spectroscopic_redshift
+        Target-aligned vector of nonnegative usable redshifts and NaNs for
+        unavailable measurements.
+    attempted
+        Boolean mask of spectroscopy attempts. When omitted, attempt
+        fractions and success given an attempt are unavailable.
     """
     som: SOMMap
     target_features: np.ndarray
@@ -201,11 +232,12 @@ class PhotoZCells:
         if z.shape!=(len(x),) or np.any(np.isinf(z)) or np.any(z[np.isfinite(z)]<0):
             raise ValueError('spectroscopic_redshift must be N numbers or NaNs; z>=0')
         hasz=np.isfinite(z)
-        attempted=(hasz if self.attempted is None else np.asarray(self.attempted))
-        if attempted.shape!=(len(x),) or attempted.dtype.kind!='b':
-            raise ValueError('attempted must be a boolean array of length N')
-        if np.any(hasz&~attempted):
-            raise ValueError('a usable spectroscopic redshift requires attempted=True')
+        attempted = None if self.attempted is None else np.asarray(self.attempted)
+        if attempted is not None:
+            if attempted.shape != (len(x),) or attempted.dtype.kind != "b":
+                raise ValueError("attempted must be a boolean array of length N")
+            if np.any(hasz & ~attempted):
+                raise ValueError("a usable spectroscopic redshift requires attempted=True")
         object.__setattr__(self,'target_features',x)
         object.__setattr__(self,'spectroscopic_redshift',z)
         object.__setattr__(self,'attempted',attempted)
@@ -223,14 +255,15 @@ class PhotoZCells:
                spectroscopy distribution in each cell. gamma=None removes
                the restriction. gamma=0 is exact within-cell transfer.
         """
-        if not np.isfinite(z0) or z0<0: raise ValueError('z0 must be nonnegative')
-        if gamma is not None and (not np.isfinite(gamma) or gamma<0):
-            raise ValueError('gamma must be None or nonnegative finite')
+        _validate_sensitivity(z0, gamma)
         ids=self.flat_cells
         ncell=self.som.rows*self.som.cols
         hasz=np.isfinite(self.spectroscopic_redshift)
         count=np.bincount(ids,minlength=ncell)
-        attempt=np.bincount(ids[self.attempted],minlength=ncell)
+        attempt = (
+            np.full(ncell, np.nan) if self.attempted is None
+            else np.bincount(ids[self.attempted], minlength=ncell)
+        )
         spec=np.bincount(ids[hasz],minlength=ncell)
         high=np.full(ncell,np.nan)
         lower=np.full(ncell,np.nan);upper=np.full(ncell,np.nan)
@@ -249,4 +282,5 @@ class PhotoZCells:
         shape=(self.som.rows,self.som.cols)
         return PhotoZBounds(float(z0),gamma,count.reshape(shape),
                             attempt.reshape(shape),spec.reshape(shape),
-                            high.reshape(shape),lower.reshape(shape),upper.reshape(shape))
+                            high.reshape(shape),lower.reshape(shape),upper.reshape(shape),
+                            topology=self.som.topology)
