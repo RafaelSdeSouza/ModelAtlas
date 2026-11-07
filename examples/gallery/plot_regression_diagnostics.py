@@ -15,7 +15,7 @@ from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import StandardScaler
 from modelatlas import plot_coefficients, plot_predictions
 
-path = Path(__file__).resolve().parent.parent / "astronomy" / "sdss_dr8_galaxies.npz"
+path = (Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd().parent) / "astronomy" / "sdss_dr8_galaxies.npz"
 with np.load(path, allow_pickle=False) as catalogue:
     X = catalogue["colors"]
     z = catalogue["redshift"]
