@@ -9,7 +9,7 @@ from modelatlas import __version__
 sys.path.insert(0, str(Path(__file__).resolve().parent / "_ext"))
 
 project = "ModelAtlas"
-author = "Prof. Rafael S. de Souza"
+author = "Rafael S. de Souza"
 copyright = "2026, Rafael S. de Souza and ModelAtlas contributors"
 version = release = __version__
 root_doc = "index"
