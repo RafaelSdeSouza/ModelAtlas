@@ -28,7 +28,7 @@ from sklearn.svm import SVR
 from modelatlas.functional import functional_map, model_predictions
 from modelatlas.functional_plot import plot_functional_atlas
 
-path = Path(__file__).resolve().parent.parent / "astronomy" / "sdss_dr8_galaxies.npz"
+path = (Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd().parent) / "astronomy" / "sdss_dr8_galaxies.npz"
 with np.load(path, allow_pickle=False) as cat:
     X, z, plates = cat["colors"], cat["redshift"], cat["plate"]
 split = GroupShuffleSplit(n_splits=1, test_size=0.25, random_state=18)
