@@ -19,8 +19,8 @@ ModelAtlas
      <div class="atlas-hero">
        <div class="atlas-hero-copy">
          <p class="atlas-kicker">Scientific Python <span aria-hidden="true">/</span> Research preview</p>
-         <h1>Scientific figures from fitted models</h1>
-         <p class="atlas-lede">Map galaxy colors, inspect fitted prototypes, and compare what the observations show with what an analysis assumes.</p>
+         <h1>Visualize how astronomical models learn</h1>
+         <p class="atlas-lede">Explore SOMs, neural networks, and statistical models on real galaxy, stellar, and solar observations. Examine what models learn, how their predictions differ, and where the data stop supporting inference.</p>
          <div class="atlas-actions">
            <a class="atlas-button" href="astronomy/plot_sdss_galaxy_som.html">Read the SDSS galaxy study</a>
            <a class="atlas-link" href="start/quickstart.html">Five-minute quick start</a>
@@ -38,7 +38,7 @@ ModelAtlas
      <section class="atlas-examples" aria-labelledby="atlas-examples-heading">
        <div class="atlas-section-head">
          <p class="atlas-kicker">From the examples</p>
-         <h2 id="atlas-examples-heading">Read the patterns in a map</h2>
+         <h2 id="atlas-examples-heading">From stellar populations to photo-z calibration</h2>
        </div>
        <div class="atlas-spreads">
          <article class="atlas-example">
@@ -68,7 +68,8 @@ ModelAtlas
          <h2 id="atlas-reading-heading">Reproduce a figure and check its assumptions</h2>
        </div>
        <ul>
-         <li><a href="examples.html">Find an example by task</a></li>
+         <li><a href="examples.html">Explore astronomy and ML examples</a></li>
+         <li><a href="guide/communities.html">Research communities and workflows</a></li>
          <li><a href="guide/interpretation.html">Read the scientific interpretation guide</a></li>
          <li><a href="guide/reproducibility.html">Regenerate the figures and cite the software</a></li>
          <li><a href="api.html">Look up a plotting function</a></li>
