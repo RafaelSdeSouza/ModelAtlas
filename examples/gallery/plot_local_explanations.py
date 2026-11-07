@@ -24,7 +24,7 @@ from sklearn.preprocessing import StandardScaler
 
 from modelatlas import explain_mlp, explanation_layout, plot_explanation_atlas
 
-directory = Path(__file__).resolve().parent.parent / "astronomy"
+directory = (Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd().parent) / "astronomy"
 with np.load(directory / "sdss_dr8_galaxies.npz", allow_pickle=False) as data:
     colors = data["colors"]
     redshift = data["redshift"]
