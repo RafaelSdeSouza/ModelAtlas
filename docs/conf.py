@@ -60,4 +60,5 @@ sphinx_gallery_conf = {
     "capture_repr": (),
     "download_all_examples": True,
     "show_memory": False,
+    "write_computation_times": False,
 }
