@@ -1,6 +1,6 @@
-# ModelAtlas (research prototype 0.3.0)
+# ModelAtlas (research prototype 0.5.0)
 
-> **Research preview / manuscript development:** The SOM visualization uses fitted model parameters, but the photo-z partial-identification demo is synthetic and its bounds are conditional on explicit sensitivity assumptions. See [scientific notes](SCIENTIFIC_NOTES.md) and [reproducibility and manuscript checklist](REPRODUCIBILITY.md). This repository is intended to remain private during development.
+> **Research preview / manuscript development:** The SOM visualization uses fitted model parameters, but the photo-z partial-identification demo is synthetic and its bounds are conditional on explicit sensitivity assumptions. See [scientific notes](SCIENTIFIC_NOTES.md) and [reproducibility and manuscript checklist](REPRODUCIBILITY.md). This repository is public; the scientific algorithms are experimental and not validated survey calibration tools.
 
 The SOM architecture figure can be reproduced with `python examples/photoz_architecture.py`.
 
@@ -9,6 +9,24 @@ The SOM architecture figure can be reproduced with `python examples/photoz_archi
 
 Compact, vector-native scientific model diagrams **derived from actual fitted parameters**, drawn as ordinary Matplotlib figures. ModelAtlas's goal is not to draw every model as if it were a neural network. It uses an *appropriate visual grammar* for each fitted model type.
 
+
+
+## Adaptive photometric prototype graphs (research preview v0.5)
+
+A reproducible **SOM vs. GTM vs. Growing Neural Gas–style graph** comparison is available in `examples/adaptive_photoz_comparison.py` and `examples/adaptive_replicates.py`. All three representations are trained on standardized synthetic *photometry alone* using 64 prototypes, with non-random spectroscopy and hidden true redshifts used strictly for an evaluation audit.
+
+The adaptive graph's learned edges, eight photometric input nodes, oblique PCA-derived prototype positions, occupancy and usable-spectroscopy fraction are rendered using Matplotlib in `plot_graph_atlas`. The image extrusion is decorative, and the input fibers are codebook coordinates rather than MLP connection weights.
+
+Run:
+
+```bash
+python -m pip install -e '.[adaptive,examples,test,xai]'
+python examples/adaptive_photoz_comparison.py
+python examples/adaptive_replicates.py
+python -m pytest -q
+```
+
+**Result:** across five synthetic mock catalogues, the graph improves held-out photometric quantization but does **not** improve within-cell true-redshift dispersion or identified-set width over the SOM. The `W1 <= Gamma` sensitivity assumption is knowingly violated in some mock cells. The intervals are *not* confidence intervals, and none of the results constitute validation on real survey data. See [ADAPTIVE_PHOTOZ_NOTES.md](ADAPTIVE_PHOTOZ_NOTES.md).
 
 ## New in 0.3 — the **actual nodes and connections**
 
