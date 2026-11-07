@@ -40,6 +40,7 @@ geo=functional_map(pred)
 family={'Ridge':'GLM','Random forest R':'Forest','SVR':'Kernel','kNN R':'Kernel',
  'Boosted R':'Forest','Tree R':'Forest','Mean':'Bayes'}
 fig,ax=plot_functional_atlas(geo,family=family,figsize=(7.5,5.8))
+fig.set_label('Different fitted regression families compared by predictions on held-out diabetes measurements.')
 out=os.environ.get('MODELATLAS_FIGURE_DIR')
 if out:
     Path(out).mkdir(parents=True,exist_ok=True)
