@@ -1,33 +1,14 @@
 Citation and sources
 ====================
 
+ModelAtlas is developed by **Rafael S. de Souza**.
 
-Creator and software authorship
--------------------------------
+Cite the version or commit used in your analysis. The current citation
+metadata is in
+`CITATION.cff <https://github.com/RafaelSdeSouza/ModelAtlas/blob/research/functional-information-geometry/CITATION.cff>`__.
+No archival DOI has been assigned yet. The software is MIT licensed.
 
-**Prof. Rafael S. de Souza** is the creator and scientific lead of
-ModelAtlas. Academic affiliations: Centre for Astrophysics Research,
-University of Hertfordshire (UK); Department of Physics and Astronomy,
-University of North Carolina at Chapel Hill (USA, adjunct affiliation).
-The UFRGS (Brazil) connection is through the CNPq Conhecimento Brasil
-research project, rather than an asserted employment appointment.
-
-The scientific project and its reproducible research-software implementation
-are documented in the repository. Development has included AI-assisted
-coding and documentation; responsibility for verification and scientific
-interpretation remains with the human project lead. Other human
-contributors should be credited according to their documented work.
-
-The recommended software attribution is: **de Souza, Rafael S.,
-ModelAtlas: Scientific Visualization of Fitted Models**, citing the exact
-released version or Git commit. An archival DOI is not yet available.
-See :doc:`creator` for the creator profile and academic affiliations.
-
-
-Cite the exact ModelAtlas version and commit that produced the analysis.
-Current development metadata is in
-`CITATION.cff <https://github.com/RafaelSdeSouza/ModelAtlas/blob/dev/research-package-and-docs/CITATION.cff>`__.
-A release DOI will be added after archival. The software is MIT licensed.
+Author affiliations are listed on the :doc:`creator` page.
 
 Methods
 -------
