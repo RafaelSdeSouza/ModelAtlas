@@ -33,7 +33,7 @@ from modelatlas.behavior_geometry import build_probability_atlas
 from modelatlas.behavior_plot import plot_probability_atlas
 from modelatlas.functional import model_predictions
 
-path = Path(__file__).resolve().parent.parent / "astronomy" / "sdss_dr8_galaxies.npz"
+path = (Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd().parent) / "astronomy" / "sdss_dr8_galaxies.npz"
 with np.load(path, allow_pickle=False) as cat:
     X, redshift, plates = cat["colors"], cat["redshift"], cat["plate"]
 split = GroupShuffleSplit(n_splits=1, test_size=0.25, random_state=18)
