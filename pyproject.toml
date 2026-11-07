@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "modelatlas-viz"
-version = "0.4.0"
+version = "0.5.0"
 description = "Compact vector-native scientific diagrams grounded in fitted models"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,6 +17,7 @@ keywords = ["SOM", "scientific visualization", "matplotlib", "model inspection",
 examples = ["scikit-learn>=1.1", "pandas>=1.4", "scipy>=1.9"]
 test = ["pytest>=7", "scikit-learn>=1.1", "scipy>=1.9"]
 xai = ["scikit-learn>=1.1", "scipy>=1.9"]
+adaptive = ["scikit-learn>=1.1", "scipy>=1.9"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
