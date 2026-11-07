@@ -11,3 +11,4 @@ User guide
    information_geometry
    citation
    sdss_data
+   communities
