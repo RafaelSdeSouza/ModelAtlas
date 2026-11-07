@@ -23,7 +23,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.datasets import load_breast_cancer
-from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier, HistGradientBoostingClassifier
+from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import brier_score_loss, roc_auc_score
 from sklearn.model_selection import train_test_split
@@ -91,16 +91,19 @@ if __name__=='__main__' or __name__.startswith('sphinx_gallery'):
     out = Path(output_dir) if output_dir else None
     if out is not None: out.mkdir(parents=True,exist_ok=True)
     fig,ax=plot_functional_atlas(fm,family=families,quality=brier)
+    fig.set_label('Fitted classifiers arranged by held-out prediction similarity; prism colors represent model families.')
     if out is not None:
         for ext in ('png','svg','pdf'):
             fig.savefig(out/f'01_functional_atlas.{ext}',dpi=260,bbox_inches='tight',facecolor='white')
     plt.show()
     fig,ax=plot_information_lattice(lattice)
+    fig.set_label('Information lattice: hexagonal prisms show prediction variation unresolved by each subset of four binned measurements.')
     if out is not None:
         for ext in ('png','svg','pdf'):
             fig.savefig(out/f'02_information_lattice.{ext}',dpi=260,bbox_inches='tight',facecolor='white')
     plt.show()
     fig,ax=plot_prediction_fibers(B,pred['MLP A'],features=(0,1))
+    fig.set_label('Projection fibers showing within-bin prediction ranges from 10th to 90th percentiles for a fixed neural network.')
     if out is not None:
         for ext in ('png','svg','pdf'):
             fig.savefig(out/f'03_projection_fibers.{ext}',dpi=260,bbox_inches='tight',facecolor='white')
