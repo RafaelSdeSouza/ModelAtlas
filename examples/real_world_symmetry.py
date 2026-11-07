@@ -23,7 +23,15 @@ OUT=ROOT/'docs'/'figures'/'symmetry'
 def real_datasets():
     wine=load_wine()
     cancer=load_breast_cancer()
+    series=np.genfromtxt(ROOT/'data'/'sunspots_1700_2008.csv', delimiter=',', skip_header=1)
+    counts=series[:,1]
+    # At year t, predict whether solar activity increases at year t+1 using
+    # only the eight annual counts through year t. Chronological holdout.
+    solar_X=np.stack([counts[t-7:t+1] for t in range(7,len(counts)-1)])
+    solar_y=np.array([counts[t+1]>counts[t] for t in range(7,len(counts)-1)], dtype=int)
     return {
+        'solar': dict(X=solar_X,y=solar_y,feature_names=tuple(f'activity t-{7-j}' for j in range(8)),
+                      title='Solar sunspot activity',label='activity rises next year',chronological=True),
         'wine': dict(X=wine.data[:,:8],y=(wine.target==0).astype(int),
                      feature_names=tuple(wine.feature_names[:8]),
                      title='Wine chemistry',label='class 0 wine'),
@@ -37,7 +45,12 @@ def real_datasets():
 def train_case(name,seed1=4,seed2=29):
     from modelatlas.symmetry_plot import plot_independent_pair, plot_alignment_diagnostic, plot_residual_atlas
     d=real_datasets()[name];X=d['X'];y=d['y']
-    Xtr,Xte,ytr,yte=train_test_split(X,y,test_size=.31,random_state=2026,stratify=y)
+    if d.get('chronological',False):
+        # Do not shuffle overlapping sunspot windows into training and test.
+        cut=int(.72*len(y))
+        Xtr,Xte,ytr,yte=X[:cut],X[cut:],y[:cut],y[cut:]
+    else:
+        Xtr,Xte,ytr,yte=train_test_split(X,y,test_size=.31,random_state=2026,stratify=y)
     standardizer=StandardScaler().fit(Xtr)
     train=standardizer.transform(Xtr)
     test=standardizer.transform(Xte)
@@ -59,6 +72,7 @@ def train_case(name,seed1=4,seed2=29):
     report={
         'dataset':name,'n_train':int(train.shape[0]),'n_test':int(test.shape[0]),
         'n_features':int(X.shape[1]),'selected_test_index':ix,
+        'split':'chronological' if d.get('chronological',False) else 'stratified random',
         'seed_A':seed1,'seed_B':seed2,
         'test_auc_A':float(roc_auc_score(yte,pA)),
         'test_auc_B':float(roc_auc_score(yte,pB)),
