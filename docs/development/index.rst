@@ -45,3 +45,4 @@ of ``main`` with its ``publish`` input enabled and targets the
    :maxdepth: 1
 
    audit
+   documentation

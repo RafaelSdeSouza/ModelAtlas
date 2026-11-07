@@ -8,3 +8,4 @@ User guide
    interpretation
    reproducibility
    citation
+   sdss_data

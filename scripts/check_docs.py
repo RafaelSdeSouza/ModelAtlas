@@ -39,8 +39,9 @@ def main(root: Path) -> None:
         for path in root.rglob("*.html")
         if not path.relative_to(root).parts[0].startswith("_")
     }
-    if root / "index.html" not in pages or root / "gallery" / "index.html" not in pages:
-        raise SystemExit("documentation is missing an index or gallery")
+    required = ("index.html", "examples.html", "gallery/index.html", "astronomy/index.html")
+    if any(root / page not in pages for page in required):
+        raise SystemExit("documentation is missing the homepage or an example index")
     nlinks = 0
     errors = []
     for path, page in pages.items():
@@ -62,7 +63,14 @@ def main(root: Path) -> None:
                 errors.append(f"{path.relative_to(root)}: missing fragment {link!r}")
 
     gallery_images = list((root / "_images").glob("sphx_glr_plot_*_[0-9][0-9][0-9].svg"))
-    examples = list((root / "gallery").glob("plot_*.html"))
+    examples = [
+        path
+        for gallery in ("gallery", "astronomy")
+        for path in (root / gallery).glob("plot_*.html")
+    ]
+    for catalogue in ("sdss_dr8_galaxies.npz", "sdss_dr9_stars.npz"):
+        if not any(path.stat().st_size for path in (root / "_downloads").glob(f"*/{catalogue}")):
+            errors.append(f"missing downloadable survey subset: {catalogue}")
     generated = root / "_static" / "generated"
     if not examples or not gallery_images:
         errors.append("no rendered examples or gallery figures")

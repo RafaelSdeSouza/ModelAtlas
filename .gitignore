@@ -24,6 +24,7 @@ outputs/
 .nox/
 /docs/_build/
 /docs/gallery/
+/docs/astronomy/
 /docs/_static/generated/
 /docs/figures/
 /docs/adaptive_*.csv

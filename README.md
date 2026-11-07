@@ -38,7 +38,9 @@ nox -s docs
 Open ``docs/_build/html/index.html`` for the Sphinx gallery, quick start,
 API reference, feature matrix, scientific interpretation, and data provenance.
 Every gallery figure is rebuilt by running its Python example. The HTML
-includes SVG, PDF and PNG downloads.
+includes SVG, PDF and PNG downloads. The astronomy examples use two
+bundled SDSS samples to map galaxy redshift and stellar temperature and
+metallicity on hexagonal SOMs.
 
 ## Reproduce the original research examples
 

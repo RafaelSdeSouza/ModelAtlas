@@ -1,8 +1,8 @@
 Reproducibility and figure export
 =================================
 
-The gallery runs offline with Python 3.12, the bundled datasets of its
-dependencies, explicit seeds, and the checked-in environment constraints.
+The gallery runs offline with Python 3.12, bundled survey subsets, the
+datasets packaged with its dependencies, and a pinned figure environment.
 From the repository root, reproduce the complete site and figures in an
 isolated environment with one command after installing the pinned tooling.
 
@@ -42,6 +42,9 @@ and plotting scales with a manuscript figure.
 Source datasets and earlier experiments
 ---------------------------------------
 
+* **SDSS galaxies and SEGUE stars.** Two observational SOM studies use
+  bundled, checksum-verified subsets. See :doc:`sdss_data` for citations,
+  the exact sample cuts, and the FITS-to-NumPy recipe.
 * **Solar activity.** Annual sunspot numbers from NOAA/NGDC for 1700–2008.
   The source is packaged with statsmodels and also archived in the original
   example's ``data/sunspots_1700_2008.csv``. Centered windows describe

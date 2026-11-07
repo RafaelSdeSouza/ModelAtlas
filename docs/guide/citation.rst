@@ -36,3 +36,6 @@ Data
 * Wolberg, W., Mangasarian, O., Street, N., & Street, W. (1993).
   *Breast Cancer Wisconsin (Diagnostic)*. UCI Machine Learning Repository.
   `doi:10.24432/C5DW2B <https://doi.org/10.24432/C5DW2B>`__.
+
+The :doc:`sdss_data` page cites the SDSS releases and catalogues for the
+two observational SOM case studies.

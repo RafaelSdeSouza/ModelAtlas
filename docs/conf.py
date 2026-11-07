@@ -49,8 +49,9 @@ linkcheck_timeout = 15
 
 
 sphinx_gallery_conf = {
-    "examples_dirs": ["../examples/gallery"],
-    "gallery_dirs": ["gallery"],
+    "examples_dirs": ["../examples/astronomy", "../examples/gallery"],
+    "gallery_dirs": ["astronomy", "gallery"],
+    "copyfile_regex": r".*\.npz$",
     "filename_pattern": r"plot_",
     "within_subsection_order": "FileNameSortKey",
     "image_scrapers": ("atlas_gallery",),

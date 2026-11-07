@@ -23,8 +23,7 @@ body:has(.atlas-home) .bd-main .bd-content .bd-article-container .bd-article { p
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.28fr);
   gap: clamp(1.2rem, 3vw, 3rem);
   align-items: center;
-  min-height: 29rem;
-  padding: clamp(2.6rem, 5vw, 5.2rem) 0 2.75rem;
+  padding: clamp(2.15rem, 4vw, 4.3rem) 0 2.75rem;
   border-bottom: 1px solid var(--atlas-rule);
 }
 .atlas-kicker {
@@ -44,9 +43,11 @@ body:has(.atlas-home) .bd-main .bd-content .bd-article-container .bd-article { p
   letter-spacing: -0.042em;
 }
 .atlas-hero h1 {
-  font-size: clamp(2.7rem, 5.15vw, 5.15rem);
-  line-height: 0.98;
+  font-size: clamp(2.55rem, 4.8vw, 4.85rem);
+  line-height: 1.05;
   margin: 0 0 1.35rem;
+  max-width: 16ch;
+  text-wrap: balance;
 }
 .atlas-lede {
   color: var(--atlas-muted);
@@ -94,14 +95,21 @@ body:has(.atlas-home) .bd-main .bd-content .bd-article-container .bd-article { p
 .atlas-example { min-width: 0; }
 .atlas-example-visual {
   display: grid;
-  place-items: center;
-  height: clamp(12rem, 24vw, 19rem);
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  width: 100%;
+  aspect-ratio: 16 / 10;
   margin: 1.35rem 0 1.05rem;
   background: white;
   border: 1px solid var(--atlas-rule);
   padding: 0.6rem;
 }
-.atlas-example-visual img { max-height: 100%; object-fit: contain; }
+.atlas-example-visual img {
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 .atlas-example h3 { font-size: clamp(1.15rem, 2vw, 1.45rem); margin: 0 0 0.45rem; font-weight: 630; }
 .atlas-example h3 a { color: var(--atlas-ink); text-underline-offset: 0.17em; }
 .atlas-example p:last-child { color: var(--atlas-muted); margin: 0; max-width: 34rem; }
@@ -116,17 +124,72 @@ body:has(.atlas-home) .bd-main .bd-content .bd-article-container .bd-article { p
 .atlas-reading h2 { max-width: 28rem; font-size: clamp(1.8rem, 3.2vw, 2.9rem); }
 .atlas-reading ul { margin: 0; padding-left: 1.2rem; }
 .atlas-reading li { margin-bottom: 0.65rem; padding-left: 0.12rem; }
-.sphx-glr-single-img { max-width: 100%; background: white; }
-html[data-theme="dark"] .sphx-glr-thumbcontainer { background-color: #243447; }
+.bd-article-container, .bd-article { min-width: 0; }
+.bd-article .sig, .bd-article h1, .bd-article h2 { overflow-wrap: anywhere; }
+.bd-article .sig { white-space: normal; }
+.bd-article code.literal .pre {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.bd-article img.sphx-glr-single-img { max-width: 100%; height: auto; background: white; }
+
+.bd-article .sphx-glr-thumbnails {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  align-items: stretch;
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+.bd-article .sphx-glr-thumbcontainer {
+  min-width: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0.65rem;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--atlas-rule);
+  border-radius: 0.2rem;
+  box-shadow: none;
+}
+.bd-article .sphx-glr-thumbcontainer:focus-within {
+  outline: 2px solid var(--atlas-strong);
+  outline-offset: 3px;
+}
+.bd-article .sphx-glr-thumbcontainer img {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  max-height: none;
+  aspect-ratio: 3 / 2;
+  object-fit: contain;
+  background: white;
+}
+.bd-article .sphx-glr-thumbnail-title {
+  color: var(--atlas-ink);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  margin-top: 0.65rem;
+}
+.bd-article .sphx-glr-download a {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: var(--atlas-strong);
+  background: var(--bs-body-bg);
+  border: 1px solid var(--atlas-rule);
+  border-radius: 0.2rem;
+  box-shadow: none;
+}
 @media (max-width: 850px) {
   .atlas-hero { grid-template-columns: 1fr; padding-top: 2.6rem; }
-  .atlas-hero h1 br { display: none; }
+  .atlas-hero h1 { max-width: 17ch; }
   .atlas-hero-figure { max-width: 42rem; }
   .atlas-hero-figure img { max-height: 22rem; object-fit: contain; }
 }
 @media (max-width: 580px) {
   .atlas-hero { gap: 1.5rem; padding-bottom: 2rem; }
-  .atlas-hero h1 { font-size: 2.75rem; }
+  .atlas-hero h1 { font-size: clamp(2rem, 9.2vw, 2.75rem); }
   .atlas-spreads, .atlas-reading { grid-template-columns: 1fr; }
   .atlas-hero-figure figcaption { font-size: 0.73rem; }
 }
