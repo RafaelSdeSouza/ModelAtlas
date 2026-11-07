@@ -83,6 +83,12 @@ then
 :math:`L^2`. Since :math:`\mathcal F_S\subseteq\mathcal F_T`, their
 projection subspaces are nested; the Pythagorean identity gives the result.
 
+In the astronomy gallery the four binned inputs are optical colors,
+encoded by short labels ``U`` (u-g), ``G`` (g-r), ``R`` (r-i), and ``I``
+(i-z). These are color-difference codes, **not individual filters**.
+The response is a fixed neural classifier's high-redshift probability
+for the selected bright SDSS spectroscopic reference sample.
+
 The example computes the corresponding empirical residuals on a *single
 fixed held-out sample*, using fixed feature thresholds from training data.
 As partitions refine, within-bin squared residuals cannot increase.
