@@ -17,12 +17,12 @@ Attributions describe a chosen contrast, not causal effects.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
 import numpy as np
+from scipy.special import expit
 
 
 def _sigmoid(x):
-    return float(1.0 / (1.0 + np.exp(-np.clip(x, -60.0, 60.0))))
+    return float(expit(x))
 
 
 def _activation(z: np.ndarray, kind: str):
@@ -32,7 +32,7 @@ def _activation(z: np.ndarray, kind: str):
     if kind == "relu":
         return np.maximum(z, 0.0), (z > 0).astype(float)
     if kind == "logistic":
-        a = 1.0 / (1.0 + np.exp(-np.clip(z, -60.0, 60.0)))
+        a = expit(z)
         return a, a * (1.0 - a)
     if kind == "identity":
         return z, np.ones_like(z)
@@ -61,7 +61,7 @@ class PathExplanation:
 
     @property
     def max_layer_residual(self) -> float:
-        return max(abs(e.sum() - self.logit_change) for e in self.edge_contributions)
+        return float(max(abs(e.sum() - self.logit_change) for e in self.edge_contributions))
 
     @property
     def max_node_residual(self) -> float:
@@ -79,10 +79,17 @@ def _verify_network(model):
         raise ValueError('This version supports binary scalar-output MLPs, not multiclass models.')
     weights = tuple(np.asarray(w, dtype=float) for w in model.coefs_)
     biases = tuple(np.asarray(b, dtype=float) for b in model.intercepts_)
-    if len(weights) < 2 or weights[-1].shape[1] != 1:
-        raise ValueError('At least one hidden layer and one scalar output are required.')
-    if any(w.ndim != 2 or len(b) != w.shape[1] for w, b in zip(weights,biases)):
-        raise ValueError('Inconsistent model parameters.')
+    if len(weights) < 2 or len(weights) != len(biases):
+        raise ValueError("At least one hidden layer with matching biases is required.")
+    for i, (w, b) in enumerate(zip(weights, biases)):
+        if (
+            w.ndim != 2 or min(w.shape) == 0 or b.shape != (w.shape[1],)
+            or not np.isfinite(w).all() or not np.isfinite(b).all()
+            or (i > 0 and w.shape[0] != weights[i - 1].shape[1])
+        ):
+            raise ValueError("Inconsistent or nonfinite model parameters.")
+    if weights[-1].shape[1] != 1:
+        raise ValueError("Exactly one scalar output is required.")
     if getattr(model, 'out_activation_', 'logistic') != 'logistic':
         raise ValueError('Only binary logistic-output MLPClassifier is supported.')
     activation = getattr(model, 'activation', 'tanh')
@@ -131,6 +138,7 @@ def explain_mlp(model, x: np.ndarray, *, baseline: np.ndarray | None = None,
         raise ValueError('Inputs must be finite.')
     if int(steps) != steps or steps < 8:
         raise ValueError('steps must be an integer >= 8.')
+    steps = int(steps)
     acts,_,_= _forward(weights,biases,activation,x)
     base_acts,_,_=_forward(weights,biases,activation,baseline)
     logit=float(acts[-1][0]);base_logit=float(base_acts[-1][0])
@@ -167,8 +175,8 @@ def activation_signatures(model, X: np.ndarray) -> tuple[np.ndarray, ...]:
     """Return hidden-layer activations for positioning neurons, not attribution."""
     weights,biases,activation=_verify_network(model)
     X=np.asarray(X,dtype=float)
-    if X.ndim != 2 or X.shape[1] != weights[0].shape[0]:
-        raise ValueError('X must have shape (n_samples, n_features).')
+    if X.ndim != 2 or not len(X) or X.shape[1] != weights[0].shape[0] or not np.isfinite(X).all():
+        raise ValueError('X must be a nonempty finite array with the fitted feature dimension.')
     a=X.copy();hidden=[]
     for w,b in zip(weights[:-1],biases[:-1]):
         z=a @ w+b

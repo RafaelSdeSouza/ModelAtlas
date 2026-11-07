@@ -1,26 +1,78 @@
 [build-system]
-requires = ["setuptools>=65", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling==1.28.0"]
+build-backend = "hatchling.build"
 
 [project]
 name = "modelatlas-viz"
-version = "0.5.0"
-description = "Compact vector-native scientific diagrams grounded in fitted models"
+dynamic = ["version"]
+description = "Vector-native scientific visualizations of fitted models"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{name = "Rafael S. de Souza"}]
 dependencies = ["numpy>=1.23", "matplotlib>=3.6", "scipy>=1.9"]
-keywords = ["SOM", "scientific visualization", "matplotlib", "model inspection", "explainable AI", "integrated gradients"]
+keywords = ["SOM", "scientific visualization", "matplotlib", "model inspection", "explainable AI"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Repository = "https://github.com/RafaelSdeSouza/ModelAtlas"
+Issues = "https://github.com/RafaelSdeSouza/ModelAtlas/issues"
 
 [project.optional-dependencies]
-examples = ["scikit-learn>=1.1", "pandas>=1.4", "scipy>=1.9"]
-test = ["pytest>=7", "scikit-learn>=1.1", "scipy>=1.9"]
-xai = ["scikit-learn>=1.1", "scipy>=1.9"]
-adaptive = ["scikit-learn>=1.1", "scipy>=1.9"]
+examples = ["scikit-learn>=1.1", "pandas>=1.4"]
+test = ["pytest>=8,<9", "pytest-cov>=5,<8", "scikit-learn>=1.1", "minisom>=2.3.3"]
+docs = ["sphinx>=7.4,<9", "pydata-sphinx-theme>=0.16,<0.17", "sphinx-gallery>=0.19,<0.20", "scikit-learn>=1.1", "statsmodels>=0.14.4"]
+xai = ["scikit-learn>=1.1"]
+adaptive = ["scikit-learn>=1.1"]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.hatch.version]
+path = "src/modelatlas/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/modelatlas"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src", "/tests", "/examples", "/data", "/docs", "/requirements", "/scripts",
+    "/.github", "/.gitignore", "/.pre-commit-config.yaml", "/noxfile.py", "/pyproject.toml",
+    "/*.md", "/CITATION.cff", "/LICENSE",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-ra --strict-config --strict-markers"
+
+[tool.coverage.run]
+branch = true
+source = ["modelatlas"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = ["docs/gallery", "docs/_static/generated"]
+
+[tool.ruff.lint]
+select = ["E4", "E9", "F"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/modelatlas/geometry.py", "src/modelatlas/lattice.py", "src/modelatlas/som.py", "src/modelatlas/export.py"]
+follow_imports = "silent"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true

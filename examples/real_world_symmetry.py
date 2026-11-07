@@ -7,6 +7,7 @@ from pathlib import Path
 import json
 import warnings
 
+import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.datasets import load_wine, load_breast_cancer
 from sklearn.model_selection import train_test_split
@@ -90,6 +91,7 @@ def train_case(name,seed1=4,seed2=29):
     plot_independent_pair(A,align,test[ix],d['title'],d['label'],report,out)
     plot_residual_atlas(A,align,test,d['title'],report,out)
     plot_alignment_diagnostic(A,B,align,train,test,yte,d['title'],report,out)
+    plt.close("all")
     (out/'metrics.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf8')
     return report
 

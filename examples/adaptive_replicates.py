@@ -1,5 +1,7 @@
 """Repeated mock comparison; NO photo-z redshifts used to train representations."""
-import csv, json, importlib.util
+import csv
+import json
+import importlib.util
 from pathlib import Path
 import numpy as np
 from sklearn.model_selection import train_test_split

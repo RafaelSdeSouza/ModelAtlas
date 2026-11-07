@@ -1,3 +1,16 @@
+# Changelog
+
+## 0.6.0.dev0 — development review
+
+- Train and render rectangular and hexagonal SOMs with shared lattice geometry.
+- Add a reusable oblique camera, prototype projection diagnostics, fixed alignment
+  scales, and deterministic vector/raster export with software metadata.
+- Expose GTM latent grids and responsibilities, and distinguish regression
+  uncertainty from photo-z identification sensitivity in separate plots.
+- Mark attempt-related diagnostics as missing when there are no attempt records.
+- Build a strict Sphinx gallery and verify fresh installs of both distributions.
+- Preserve the original research scripts and document their scientific scope.
+
 ## 0.5.0 (draft research preview)
 - Added experimental Growing Neural Gas–style adaptive prototype graph, regularized GTM baseline, graph geometry renderer.
 - Five-seed synthetic photo-z comparisons; confirmed photometric quantization improvement but not better population identification.
@@ -8,8 +21,6 @@
 - Added neuron-conservation diagnostics, 2.5D XAI renderer, real Wine example, and 8 XAI tests.
 - Mathematically distinguish logit contributions from output probabilities.
 - No claims of causal explanation or novel attribution estimators.
-
-# Changelog
 
 ## 0.3.0 — research preview (2026-11-06)
 - Render SOM input nodes, learned prototype connections and tilted lattice as one compact vector-native Matplotlib figure.

@@ -19,3 +19,13 @@ outputs/
 .DS_Store
 .vscode/
 .idea/
+
+# Generated review products and archived experiment output paths
+.nox/
+/docs/_build/
+/docs/gallery/
+/docs/astronomy/
+/docs/_static/generated/
+/docs/figures/
+/docs/adaptive_*.csv
+/docs/adaptive_*.json

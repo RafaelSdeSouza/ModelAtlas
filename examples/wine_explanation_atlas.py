@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import warnings
-import sys
 import numpy as np
 from sklearn.datasets import load_wine
 from sklearn.preprocessing import StandardScaler
@@ -17,7 +16,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import roc_auc_score
 
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 from modelatlas.explanation import explain_mlp
 from modelatlas.explanation_plot import plot_explanation_atlas
 

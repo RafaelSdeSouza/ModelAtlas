@@ -9,17 +9,17 @@ Run:
 """
 from pathlib import Path
 import json
-import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.linear_model import Ridge
 from sklearn.neural_network import MLPRegressor
-from sklearn.metrics import r2_score, mean_absolute_error
+from sklearn.metrics import r2_score
+
+from modelatlas import SOMMap, train_som, visualize, plot_metric, plot_predictions
 
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'src'))
-from modelatlas import SOMMap, train_som, visualize, plot_metric, plot_predictions
+
 
 raw=pd.read_csv(ROOT/'data/sunspots_1700_2008.csv')
 Y=raw['YEAR'].to_numpy(dtype=int)

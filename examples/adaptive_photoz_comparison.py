@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
-from matplotlib.collections import LineCollection
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.stats import wasserstein_distance
 from sklearn.decomposition import PCA
@@ -202,7 +201,6 @@ def plot_graph(graph, X, assignments, obs_z, output, seed=39):
 
 def plot_comparison(som_w,gtm_w,graph, X, assignments, zspec, output):
     """One PNG/PDF comparison; each plot remains an independent small figure."""
-    from matplotlib.patches import Polygon
     weights=[som_w,gtm_w,graph.prototypes]
     labels=['SOM · fixed lattice','GTM · probabilistic','GNG · adaptive graph']
     adj=[adjacency_grid((8,8)),adjacency_grid((8,8)),graph.adjacency]
@@ -232,7 +230,7 @@ def plot_comparison(som_w,gtm_w,graph, X, assignments, zspec, output):
 
 def main(seed=39):
     d=generate_mock(6000,seed)
-    X=d['X'];z=d['z'];sz=d['z_spec'];rng=np.random.default_rng(seed)
+    X=d['X'];z=d['z'];sz=d['z_spec']
     train_index,test_index=train_test_split(np.arange(len(z)),test_size=.25,random_state=seed)
     scaler=StandardScaler().fit(X[train_index]); x=scaler.transform(X)
     # Unsupervised fit: ALL prototype methods see same training photometry only.
