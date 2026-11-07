@@ -199,3 +199,13 @@ body:has(.atlas-home) .bd-main .bd-content .bd-article-container .bd-article { p
   text-align: center;
   margin: 0.45rem 0 1.35rem;
 }
+
+.atlas-byline {
+  color: var(--atlas-ink);
+  font-size: 0.93rem;
+  line-height: 1.5;
+  margin: -0.15rem 0 1.5rem;
+  font-weight: 550;
+}
+.atlas-byline a { color: var(--atlas-strong); text-underline-offset: 0.18em; }
+.atlas-byline span { display: block; margin-top: 0.20rem; font-size: 0.80rem; font-weight: 400; color: var(--atlas-muted); }
