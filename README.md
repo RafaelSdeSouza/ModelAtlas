@@ -1,5 +1,9 @@
 # ModelAtlas
 
+**Created and scientifically led by Prof. Rafael S. de Souza.** Academic affiliations: Centre for Astrophysics Research, University of Hertfordshire (UK); Department of Physics and Astronomy, University of North Carolina at Chapel Hill (USA). Research connection: Universidade Federal do Rio Grande do Sul (UFRGS, Brazil), through the CNPq Conhecimento Brasil project.
+
+ModelAtlas is an independent open-source research-software project; the academic affiliations above do not imply institutional endorsement. See the [project creator and credits](docs/guide/creator.rst), [citation guidance](docs/guide/citation.rst), and [CITATION.cff](CITATION.cff).
+
 ModelAtlas makes Matplotlib figures from fitted scientific models. It draws
 rectangular and hexagonal SOM codebooks, learned prototype graphs, small
 neural networks, local logit attributions and symmetry-aligned comparisons.
