@@ -76,7 +76,6 @@ def plot_functional_atlas(atlas: FunctionalMap, *, family=None, quality=None, se
     _setup(ax)
     family=family or {name:'other' for name in names}
     cmap={'GLM':'#2B6698','MLP':'#D6A052','Forest':'#34958D','Kernel':'#8F78B3','Bayes':'#9B7287','Other':'#65819F'}
-    P=atlas.profiles
     # Model glyphs all have identical geometric depth. Coordinates encode
     # functional behavior, not model performance or uncertainty.
     quality=quality or {}
